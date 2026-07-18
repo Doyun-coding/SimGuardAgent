@@ -1,0 +1,48 @@
+# 환경 변수 / 시크릿
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+
+# 가상환경
+.venv/
+venv/
+env/
+
+# Python 캐시
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# 벤치마크 결과 (대용량 JSON)
+results/
+
+# Claude 설정
+.claude/
+
+# 로그
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# 외부 라이브러리 (별도 git repo) — 어댑터 파일만 예외
+agents/smolagents/*
+!agents/smolagents/smolagents_adapter.py
+agents/OpenHands/
+agents/gpt-researcher/
+agents/open_deep_research/
+agents/ASB/
+agents/agentdojo/
+attacks-bench/tool/AgentDyn/
+
+# 기타
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
