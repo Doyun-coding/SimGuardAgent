@@ -328,6 +328,8 @@ def main():
     parser.add_argument("--label",     default="attack",
                         choices=["attack", "benign", "all"],
                         help="GA_Jailbreak 레이블 필터 (attack=1 / benign=0 / all)")
+    parser.add_argument("--result",    default=None,
+                        help="결과 저장 경로 (기본값: results/... 자동 생성)")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.WARNING)
@@ -344,7 +346,7 @@ def main():
     elif args.evaluate:
         asyncio.run(evaluate("smolagents", args.benchmark, args.mode, args.workers))
     else:
-        asyncio.run(run("smolagents", args.benchmark, args.mode, args.limit, args.workers, args.label))
+        asyncio.run(run("smolagents", args.benchmark, args.mode, args.limit, args.workers, args.label, args.result))
         analyze(agent="smolagents", benchmark=args.benchmark, mode=args.mode)
 
 

@@ -140,14 +140,23 @@ def _save(path: Path, agent: str, benchmark: str, mode: str, results: list[dict]
 # 실행
 # ─────────────────────────────────────────────────────────────────────────────
 
-async def run(agent: str, benchmark: str, mode: str, limit: int | None, workers: int, label: str = "attack"):
+async def run(agent: str, benchmark: str, mode: str, limit: int | None, workers: int, label: str = "attack", result: str | None = None):
     loader, _ = BENCHMARKS[benchmark]
     # GA_Jailbreak만 label 파라미터 지원
     if benchmark == "GA_Jailbreak":
         entries = loader(limit, label=label)
     else:
         entries = loader(limit)
-    path     = _result_path(agent, benchmark, mode, label if benchmark == "GA_Jailbreak" else None)
+    if result:
+        p = Path(result)
+        if result.endswith("/") or result.endswith("\\") or p.is_dir():
+            auto = _result_path(agent, benchmark, mode, label if benchmark == "GA_Jailbreak" else None).name
+            path = p / auto
+        else:
+            path = p
+        path.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        path = _result_path(agent, benchmark, mode, label if benchmark == "GA_Jailbreak" else None)
     run_task = _get_adapter(agent)
 
     done: dict[str, dict] = {}
