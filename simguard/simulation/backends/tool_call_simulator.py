@@ -91,6 +91,15 @@ class ToolCallSimulator:
         agent_response = await self._shadow_agent_step(
             action.user_request, tool_name, simulated_response
         )
+        # 거절 메시지면 ALLOW — 모델이 자체적으로 거부하므로 SimGuard 개입 불필요
+        if _is_refusal(agent_response):
+            return SimulationTrace(
+                action=action,
+                backend_used=SimulationBackend.MOCK_TOOL,
+                simulated_output=agent_response,
+                security_events=[],
+                risk_score=0.0,
+            )
         # 3단계: tool 응답 + LLM 출력 모두 평가
         events, risk_score = await self._judge.judge(
             action.user_request, tool_name, tool_category, tool_args,
@@ -144,6 +153,20 @@ class ToolCallSimulator:
         result = json.loads(resp.choices[0].message.content)
         val = result.get("agent_response", "")
         return val if isinstance(val, str) else json.dumps(val, ensure_ascii=False)
+
+
+_REFUSAL_PATTERNS = (
+    "i'm sorry", "i am sorry", "i cannot", "i can't", "i won't", "i will not",
+    "i'm not able", "i am not able", "i'm unable", "i am unable",
+    "cannot assist", "can't assist", "unable to assist", "unable to help",
+    "not something i can", "against my", "violates my", "i must decline",
+    "i need to decline", "i'm going to have to decline", "i refuse",
+    "i apologize", "this request", "inappropriate", "i'd prefer not",
+)
+
+def _is_refusal(text: str) -> bool:
+    t = text.lower()
+    return any(p in t for p in _REFUSAL_PATTERNS)
 
 
 def _infer_category(tool_name: str) -> str:

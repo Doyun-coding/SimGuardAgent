@@ -1,0 +1,13 @@
+services:
+  simguard:
+    build: .
+    image: simguard-agent:latest
+    env_file:
+      - .env
+    volumes:
+      # 결과 파일 호스트에 저장
+      - ./results:/app/results
+      # CodeSimulator Docker-in-Docker: 호스트 Docker 소켓 공유
+      - /var/run/docker.sock:/var/run/docker.sock
+    network_mode: bridge
+    # 기본 실행 예시 (docker-compose run simguard --benchmark GA_Jailbreak ...)
