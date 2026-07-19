@@ -194,19 +194,7 @@ class _SimGuardWrapper:
                 raise _BlockedBySimGuard(trace.risk_score)
 
         if step_worst is None and not tool_calls:
-            print(f"  │  tool_calls 없음 → BehaviorSimulator (conversational)")
-            step_worst = await interceptor.intercept_conversational(
-                self._task,
-                AgentPlan(
-                    agent_role="SmolAgents ToolCallingAgent",
-                    agent_persona="general-purpose research agent",
-                    sub_queries=[self._task[:200]],
-                    research_focus=self._task,
-                ),
-            )
-            events_str = ", ".join(f"{e.type}({e.severity})" for e in step_worst.security_events) or "없음"
-            print(f"  │    risk={step_worst.risk_score:.2f}  events={events_str}  → {step_worst.decision.value}")
-            step_max_risk = step_worst.risk_score
+            print(f"  │  tool_calls 없음 → ALLOW (conversational)")
 
         self.trace = step_worst
         decision   = step_worst.decision.value if step_worst else "ALLOW"
