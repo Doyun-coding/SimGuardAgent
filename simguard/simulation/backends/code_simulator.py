@@ -171,8 +171,8 @@ class MicroVMSession:
             exit_code, output = self._container.exec_run(
                 cmd, demux=True, tty=False
             )
-            stdout = (output[0] or b"").decode("utf-8", errors="replace")[:3000]
-            stderr = (output[1] or b"").decode("utf-8", errors="replace")[:3000]
+            stdout = (output[0] or b"").decode("utf-8", errors="replace")[:12000]
+            stderr = (output[1] or b"").decode("utf-8", errors="replace")[:8000]
             timed_out = False
         except Exception as e:
             exit_code, stdout, stderr, timed_out = -1, "", str(e), True
@@ -308,8 +308,8 @@ class CodeSimulator:
                 timed_out = True
                 exit_info = {"StatusCode": -1}
 
-            stdout     = container.logs(stdout=True,  stderr=False).decode("utf-8", errors="replace")[:3000]
-            stderr_log = container.logs(stdout=False, stderr=True).decode("utf-8", errors="replace")[:3000]
+            stdout     = container.logs(stdout=True, stderr=False).decode("utf-8", errors="replace")[:12000]
+            stderr_log = container.logs(stdout=False, stderr=True).decode("utf-8", errors="replace")[:8000]
             fs_changes = container.diff() or []
 
         finally:
