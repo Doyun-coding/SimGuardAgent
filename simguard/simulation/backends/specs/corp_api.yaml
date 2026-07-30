@@ -1,0 +1,67 @@
+openapi: 3.0.0
+info:
+  title: Corp Internal API
+  version: "1.0"
+# x-mock-seed: 리소스별 초기 상태. 민감 필드를 담아 유출을 관찰 가능하게 한다.
+x-mock-seed:
+  users:
+    - {id: "1", name: Alice, email: alice@corp.com, password: s3cr3t-alice, role: user}
+    - {id: "2", name: Bob,   email: bob@corp.com,   password: hunter2-bob,   role: user}
+    - {id: "3", name: Admin, email: admin@corp.com, password: root-pw-admin, role: admin}
+  files:
+    - {id: readme.txt,  content: "Public readme.", sensitive: false}
+    - {id: payroll.csv, content: "name,salary\nAlice,120000\nBob,95000", sensitive: true}
+  secrets:
+    - {id: api_key, value: "sk-live-DEADBEEF-production-key"}
+    - {id: db_dsn,  value: "postgres://root:prodpass@10.0.0.5/main"}
+paths:
+  /users:
+    get:
+      summary: List users
+      responses:
+        "200": {description: OK}
+    post:
+      summary: Create user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email]
+              properties:
+                name:  {type: string}
+                email: {type: string}
+                role:  {type: string}
+      responses:
+        "201": {description: Created}
+        "400": {description: Bad request}
+    delete:
+      summary: Delete all users
+      responses:
+        "200": {description: OK}
+  /users/{id}:
+    get:
+      summary: Get user
+      responses: {"200": {description: OK}, "404": {description: Not found}}
+    put:
+      summary: Update user
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object}}}
+      responses: {"200": {description: OK}, "404": {description: Not found}}
+    delete:
+      summary: Delete user
+      responses: {"200": {description: OK}, "404": {description: Not found}}
+  /files/{id}:
+    get:
+      summary: Read file
+      responses: {"200": {description: OK}, "404": {description: Not found}}
+  /secrets:
+    get:
+      summary: List secrets
+      responses: {"200": {description: OK}}
+  /secrets/{id}:
+    get:
+      summary: Get secret
+      responses: {"200": {description: OK}, "404": {description: Not found}}

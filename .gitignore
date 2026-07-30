@@ -46,3 +46,18 @@ dist/
 build/
 .pytest_cache/
 .mypy_cache/
+
+# Local models / experiment artifacts
+models/
+runs/
+
+# Downloaded benchmark datasets and generated benchmark data
+attacks-bench/database/LLM-attack-dataset-sql-attacks/
+attacks-bench/database/bird-mini-dev/
+attacks-bench/database/minidev/
+attacks-bench/database/bird_mini_dev_simguard_500.json
+attacks-bench/database/bird_mini_dev_simguard_500.jsonl
+attacks-bench/agentdojo/data/
+attacks-bench/MCPTox-Benchmark/*
+!attacks-bench/MCPTox-Benchmark/
+!attacks-bench/MCPTox-Benchmark/run_mcptox_simguard.py

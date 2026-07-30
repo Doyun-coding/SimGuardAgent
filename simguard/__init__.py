@@ -1,4 +1,9 @@
 from simguard.interceptor import SimGuardInterceptor
+from simguard.shadow_api import (
+    GuardedToolCallResult, RuntimeShadowToolExecutor,
+    ShadowExecutionResult, ShadowToolExecutor,
+    TransactionRollbackDBExecutor,
+)
 from simguard.models import (
     Action, ActionType, AgentPlan,
     Decision, SecurityEvent, SimulationBackend,
@@ -10,4 +15,7 @@ __all__ = [
     "Action", "ActionType", "AgentPlan",
     "Decision", "SecurityEvent", "SimulationBackend",
     "SimulationTrace", "ToolCall",
+    "GuardedToolCallResult", "RuntimeShadowToolExecutor",
+    "ShadowExecutionResult", "ShadowToolExecutor",
+    "TransactionRollbackDBExecutor",
 ]

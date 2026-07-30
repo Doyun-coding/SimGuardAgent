@@ -37,6 +37,8 @@ DELAY          = 1
 DATASET_FILES = {
     "base":     INJECAGENT_DIR / "test_cases_dh_base.json",
     "enhanced": INJECAGENT_DIR / "test_cases_dh_enhanced.json",
+    # dh/ds × base/enhanced 4개를 합친 것 (2108건). setting·variant 필드로 사후 분해 가능
+    "all":      INJECAGENT_DIR / "test_cases_all.json",
     "benign":   INJECAGENT_DIR / "user_cases.jsonl",
 }
 
@@ -63,16 +65,20 @@ def load_dataset(dataset: str) -> list[dict]:
         return cases
     else:
         raw = json.loads(path.read_text(encoding="utf-8"))
-        prefix = "dh-base" if dataset == "base" else "dh-enhanced"
+        prefix = {"base": "dh-base", "enhanced": "dh-enhanced"}.get(dataset, "all")
         cases = []
         for i, r in enumerate(raw):
+            # 합친 파일(all)은 레코드마다 고유 id·setting·variant를 이미 갖고 있다
+            case_id = r["id"] if "id" in r else f"{prefix}_{i:04d}"
             cases.append({
-                "id":               f"{prefix}_{i:04d}",
+                "id":               case_id,
                 "label":            "injected",
                 "category":         r.get("Attack Type", ""),
                 "user_task":        r["User Instruction"],
                 "injected_content": r["Tool Response"],
                 "inject_task":      r.get("Attacker Instruction", ""),
+                "setting":          r.get("setting", ""),   # dh / ds
+                "variant":          r.get("variant", ""),   # base / enhanced
             })
         return cases
 
@@ -202,8 +208,8 @@ async def run_benchmark(dataset: str, mode: str, limit: int | None, workers: int
 def main():
     parser = argparse.ArgumentParser(description="SimGuardAgent IPI Benchmark")
     parser.add_argument("--dataset", default="base",
-                        choices=["base", "enhanced", "benign"],
-                        help="데이터셋 선택 (base/enhanced=공격, benign=정상)")
+                        choices=["base", "enhanced", "all", "benign"],
+                        help="base/enhanced=dh만, all=dh+ds 2108건, benign=정상")
     parser.add_argument("--mode",    default="simguard", choices=["baseline", "simguard", "llamaguard", "gptsafeguard"])
     parser.add_argument("--limit",   type=int, default=None)
     parser.add_argument("--workers", type=int, default=1)

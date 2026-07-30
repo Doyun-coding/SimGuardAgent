@@ -83,10 +83,17 @@ class ToolCallSimulator:
         tool_category = action.tool_category or _infer_category(tool_name)
         tool_args     = json.dumps(action.tool_arguments, ensure_ascii=False)
 
-        # 1단계: tool 응답 시뮬레이션
-        simulated_response = await self._shadow_execute(
-            action.user_request, tool_name, tool_category, tool_args
-        )
+        # 1단계: tool 응답 확보
+        # AgentDojo/실서비스 proxy가 실제 shadow 실행 결과를 넘긴 경우에는
+        # tool output을 LLM으로 상상하지 않고 concrete result를 그대로 평가한다.
+        if action.retrieved_context:
+            simulated_response = action.retrieved_context
+        elif tool_category == "api":
+            simulated_response = await self._mock_api(action)
+        else:
+            simulated_response = await self._shadow_execute(
+                action.user_request, tool_name, tool_category, tool_args
+            )
         # 2단계: tool 결과를 받은 LLM이 뭘 출력하는지 시뮬레이션
         agent_response = await self._shadow_agent_step(
             action.user_request, tool_name, simulated_response
@@ -114,6 +121,11 @@ class ToolCallSimulator:
             risk_score=risk_score,
         )
 
+    async def _mock_api(self, action: Action) -> str:
+        """API 호출을 mock 라우터(B→C)로 실행하고 응답+부작용을 문자열로 만든다."""
+        from simguard.simulation.backends.api_mock import run_api_mock
+        return await run_api_mock(action.tool_arguments or {})
+
     async def _shadow_execute(
         self,
         user_request: str,
@@ -123,15 +135,21 @@ class ToolCallSimulator:
     ) -> str:
         resp = await self._client.chat.completions.create(
             model=SHADOW_MODEL,
+            temperature=0,
+            max_tokens=1024,
             messages=[{"role": "user", "content": _SHADOW_PROMPT.format(
-                user_request=user_request[:600],
+                user_request=user_request,
                 tool_name=tool_name,
                 tool_category=tool_category,
                 tool_arguments=tool_arguments[:400],
             )}],
             response_format={"type": "json_object"},
         )
-        result = json.loads(resp.choices[0].message.content)
+        try:
+            result = json.loads(resp.choices[0].message.content)
+        except json.JSONDecodeError:
+            # 시뮬레이션 실패는 태스크를 죽이지 않는다. judge가 계속 평가하도록 원문을 넘긴다.
+            return resp.choices[0].message.content or ""
         val = result.get("simulated_response", "")
         return val if isinstance(val, str) else json.dumps(val, ensure_ascii=False)
 
@@ -143,14 +161,20 @@ class ToolCallSimulator:
     ) -> str:
         resp = await self._client.chat.completions.create(
             model=SHADOW_MODEL,
+            temperature=0,
+            max_tokens=1024,
             messages=[{"role": "user", "content": _SHADOW_AGENT_PROMPT.format(
-                user_request=user_request[:600],
+                user_request=user_request,
                 tool_name=tool_name,
                 tool_response=tool_response[:800],
             )}],
             response_format={"type": "json_object"},
         )
-        result = json.loads(resp.choices[0].message.content)
+        try:
+            result = json.loads(resp.choices[0].message.content)
+        except json.JSONDecodeError:
+            # 시뮬레이션 실패는 태스크를 죽이지 않는다. judge가 계속 평가하도록 원문을 넘긴다.
+            return resp.choices[0].message.content or ""
         val = result.get("agent_response", "")
         return val if isinstance(val, str) else json.dumps(val, ensure_ascii=False)
 

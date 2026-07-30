@@ -57,6 +57,10 @@ class Action(BaseModel):
     tool_name:       Optional[str]       = None
     tool_arguments:  dict                = Field(default_factory=dict)
     tool_category:   Optional[str]       = None  # api|mcp|rag|browser|email|database|calendar|memory
+    # RAG·Memory 등 읽기 연산으로 실제 조회된 외부 지식.
+    # 벤치마크에서는 데이터셋이, 실제 배포에서는 RAG 시스템이 채운다.
+    # 값이 있으면 시뮬레이터가 내용을 상상하지 않고 이 원문을 근거로 평가한다.
+    retrieved_context: Optional[str]      = None
     action_type:     Optional[ActionType] = None  # None -> manager가 자동 판별
 
 
@@ -68,3 +72,5 @@ class SimulationTrace(BaseModel):
     security_events:  List[SecurityEvent] = []
     risk_score:       float              = 0.0
     decision:         Decision           = Decision.ALLOW
+    # AxisJudge가 채우는 축별 상세 판정 (평균 내지 않고 축마다 독립 보관)
+    axis_detail:      dict               = Field(default_factory=dict)

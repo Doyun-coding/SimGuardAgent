@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import shutil
 import subprocess
 import sys
@@ -49,6 +50,9 @@ _IMAGES = {
 # MicroVMSession — 프롬프트 하나의 수명 동안 유지되는 격리 컨테이너
 # ─────────────────────────────────────────────────────────────────────────────
 
+logger = logging.getLogger(__name__)
+
+
 class MicroVMSession:
     """
     프롬프트 입력 시 생성 → 에이전트 종료 시 삭제되는 격리 컨테이너 세션.
@@ -74,9 +78,15 @@ class MicroVMSession:
 
     # ── 생성 / 종료 ────────────────────────────────────────────────────────────
 
+    _warned = False
+
     @classmethod
     def create(cls, image: str = _DEFAULT_IMAGE) -> "MicroVMSession | None":
-        """Docker 가용 시 세션 시작. 없으면 None (subprocess fallback 사용)."""
+        """Docker 가용 시 세션 시작. 없으면 None (subprocess fallback 사용).
+
+        실패를 조용히 삼키면 격리 없이 돌고 있다는 사실이 드러나지 않으므로,
+        프로세스당 한 번은 반드시 경고를 남긴다.
+        """
         try:
             import docker
             client = docker.from_env()
@@ -84,7 +94,13 @@ class MicroVMSession:
             session = cls(client, image)
             session._start()
             return session
-        except Exception:
+        except Exception as e:
+            if not cls._warned:
+                cls._warned = True
+                logger.warning(
+                    "MicroVM 사용 불가 — 격리 없이 subprocess로 실행됩니다. 원인: %s: %s",
+                    type(e).__name__, str(e)[:200],
+                )
             return None
 
     def _start(self):

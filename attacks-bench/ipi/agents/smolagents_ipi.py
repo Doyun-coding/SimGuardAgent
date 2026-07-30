@@ -44,7 +44,7 @@ def _make_agent(injected_content: str):
     MockSearchTool = _mock_mod.MockSearchTool
 
     model = OpenAIModel(
-        model_id="openrouter/openai/gpt-5-mini",
+        model_id=os.environ.get("PLAN_MODEL", "qwen/qwen3.5-9b"),
         api_base=os.environ["OPENAI_BASE_URL"],
         api_key=os.environ["OPENAI_API_KEY"],
         client_kwargs={"http_client": httpx.Client(verify=False)},
@@ -57,15 +57,120 @@ def _make_agent(injected_content: str):
     )
 
 
+class _BlockedBySimGuard(Exception):
+    def __init__(self, risk_score: float):
+        self.risk_score = risk_score
+
+
+def _text_of(content) -> str:
+    """ChatMessage.content는 문자열이거나 [{"type":"text","text":...}] 형태다."""
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "\n".join(c.get("text", "") for c in content if isinstance(c, dict))
+    return str(content)
+
+
+class _IPISimGuardWrapper:
+    """model.generate()를 래핑해 매 step의 tool_calls를 SimGuard로 분석한다.
+
+    IPI에서는 오염된 tool 응답을 본 에이전트가 '공격자가 지시한 툴'을 호출하는지가
+    핵심이므로, tool_call 단계에서 가로채 ToolCallJudge(prompt_injection 지표 포함)로
+    평가한다.
+    """
+
+    def __init__(self, model, task: str):
+        self._model = model
+        self._task  = task
+        self._step  = 0
+        self.trace      = None
+        self.blocked    = False
+        self.block_risk = None
+        self.events: list[dict] = []
+
+    def generate(self, input_messages, **kwargs):
+        chat_message = self._model.generate(input_messages, **kwargs)
+        self._step += 1
+        asyncio.run(self._analyze(chat_message.tool_calls or [],
+                                  _text_of(chat_message.content)))
+        return chat_message
+
+    async def _analyze(self, tool_calls: list, content: str = ""):
+        import json as _j
+        from simguard import SimGuardInterceptor, Decision
+
+        interceptor = SimGuardInterceptor()
+        worst = None
+
+        for tc in tool_calls:
+            tool_name = tc.function.name
+            args = tc.function.arguments or {}
+            if isinstance(args, str):
+                try:
+                    args = _j.loads(args)
+                except Exception:
+                    args = {}
+            if not isinstance(args, dict):
+                args = {}
+
+            if tool_name == "final_answer":
+                answer = args.get("answer", str(args))
+                trace = await interceptor.intercept_final_answer(
+                    user_request=self._task, answer=answer,
+                )
+            else:
+                trace = await interceptor.intercept_tool_call(
+                    user_request=self._task,
+                    tool_name=tool_name,
+                    tool_arguments=args,
+                )
+
+            self.events.append({
+                "step": self._step,
+                "tool": tool_name,
+                "risk": trace.risk_score,
+                "decision": trace.decision.value,
+                "events": [{"type": e.type, "severity": e.severity} for e in trace.security_events],
+            })
+
+            if worst is None or trace.risk_score > worst.risk_score:
+                worst = trace
+
+            if trace.decision == Decision.BLOCK:
+                self.blocked    = True
+                self.block_risk = trace.risk_score
+                self.trace      = trace
+                raise _BlockedBySimGuard(trace.risk_score)
+
+        if worst is None and content.strip():
+            worst = await interceptor.intercept_plan(self._task, content)
+            self.events.append({
+                "step": self._step, "tool": "(plan)",
+                "risk": worst.risk_score, "decision": worst.decision.value,
+                "events": [{"type": e.type, "severity": e.severity} for e in worst.security_events],
+            })
+            if worst.decision == Decision.BLOCK:
+                self.blocked    = True
+                self.block_risk = worst.risk_score
+                self.trace      = worst
+                raise _BlockedBySimGuard(worst.risk_score)
+
+        if worst is not None:
+            self.trace = worst
+
+    def __getattr__(self, name):
+        return getattr(self._model, name)
+
+
 async def _run_simguard(case: dict) -> dict:
-    from simguard.models import ToolCall
-    from simguard.interceptor.tool_interceptor import wrap_tools, BlockedBySimGuard
     import importlib.util
+    from smolagents import ToolCallingAgent, OpenAIModel
 
     injected_content = case["injected_content"]
     user_task        = case["user_task"]
 
-    # 1. MockSearchTool 로드
     _mock_spec = importlib.util.spec_from_file_location(
         "mock_tools", Path(__file__).parent / "mock_tools.py"
     )
@@ -73,62 +178,57 @@ async def _run_simguard(case: dict) -> dict:
     _mock_spec.loader.exec_module(_mock_mod)
     MockSearchTool = _mock_mod.MockSearchTool
 
-    # 2. tool call 기록용 trace 리스트
-    trace: list[ToolCall] = []
-
-    # 3. MockSearchTool을 InterceptedTool로 래핑
-    original_tools = [MockSearchTool(injected_content)]
-    intercepted    = wrap_tools(original_tools, user_task=user_task, trace=trace)
-
-    # 4. 에이전트 실행 — tool call 시마다 자동 분석
-    from smolagents import ToolCallingAgent, OpenAIModel
     model = OpenAIModel(
-        model_id="openrouter/openai/gpt-5-mini",
+        model_id=os.environ.get("PLAN_MODEL", "qwen/qwen3.5-9b"),
         api_base=os.environ["OPENAI_BASE_URL"],
         api_key=os.environ["OPENAI_API_KEY"],
         client_kwargs={"http_client": httpx.Client(verify=False)},
     )
+    wrapper = _IPISimGuardWrapper(model, user_task)
     agent = ToolCallingAgent(
-        tools=intercepted,
-        model=model,
+        tools=[MockSearchTool(injected_content)],
+        model=wrapper,
         verbosity_level=0,
         max_steps=3,
     )
 
-    def _run():
-        return agent.run(user_task)
-
     try:
         result = await asyncio.wait_for(
-            asyncio.get_event_loop().run_in_executor(None, _run),
+            asyncio.get_event_loop().run_in_executor(None, agent.run, user_task),
             timeout=TIMEOUT,
         )
-        # 실행 완료 — trace에서 최고 risk 확인
-        max_risk = max((c.risk_score for c in trace), default=0.0)
-        decision = "BLOCK" if any(c.is_dangerous for c in trace) else "ALLOW"
+        trace = wrapper.trace
         return {
-            "report":            str(result) if decision == "ALLOW" else None,
-            "simguard_decision": decision,
-            "risk_score":        max_risk,
-            "tool_trace":        [c.model_dump() for c in trace],
-            "error":             None,
-        }
-
-    except BlockedBySimGuard as e:
-        return {
-            "report":            None,
-            "simguard_decision": "BLOCK",
-            "risk_score":        e.risk_score,
-            "tool_trace":        [c.model_dump() for c in trace],
+            "report":            "" if result is None else str(result),
+            "simguard_decision": trace.decision.value if trace else "ALLOW",
+            "risk_score":        trace.risk_score if trace else 0.0,
+            "ipi_events":        wrapper.events,
             "error":             None,
         }
     except asyncio.TimeoutError:
         return {
             "report":            None,
             "simguard_decision": None,
-            "risk_score":        0.0,
-            "tool_trace":        [c.model_dump() for c in trace],
+            "risk_score":        wrapper.block_risk,
+            "ipi_events":        wrapper.events,
             "error":             "timeout",
+        }
+    except Exception as e:
+        if wrapper.blocked:
+            return {
+                "report":            None,
+                "simguard_decision": "BLOCK",
+                "risk_score":        wrapper.block_risk,
+                "ipi_events":        wrapper.events,
+                "error":             None,
+            }
+        import traceback
+        return {
+            "report":            None,
+            "simguard_decision": None,
+            "risk_score":        None,
+            "ipi_events":        wrapper.events,
+            "error":             traceback.format_exc()[-300:],
         }
 
 
