@@ -4,7 +4,7 @@ WORKDIR /app
 
 # 시스템 패키지
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git curl build-essential \
+    git curl build-essential docker.io \
     && rm -rf /var/lib/apt/lists/*
 
 # Python 기본 의존성
@@ -36,4 +36,4 @@ RUN pip install --no-cache-dir docker
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
-ENTRYPOINT ["python", "-m", "agents.smolagents.smolagents_adapter"]
+ENTRYPOINT ["python", "/app/attacks-bench/agentdojo_adapter/agentdojo_adapter.py"]

@@ -1,13 +1,98 @@
 services:
+  model-server:
+    image: vllm/vllm-openai:v0.26.0
+    command:
+      - --model
+      - /models/Qwen3.5-9B
+      - --served-model-name
+      - qwen-local
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8000"
+      - --tensor-parallel-size
+      - "1"
+      - --gpu-memory-utilization
+      - "0.85"
+      - --max-model-len
+      - "16384"
+      - --reasoning-parser
+      - qwen3
+      - --enable-auto-tool-choice
+      - --tool-call-parser
+      - qwen3_coder
+      - --trust-remote-code
+    environment:
+      VLLM_USE_FLASHINFER_SAMPLER: "0"
+    volumes:
+      - ./models:/models:ro
+    ports:
+      - "127.0.0.1:8000:8000"
+    ipc: host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0"]
+              capabilities: [gpu]
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          python3 -c "import urllib.request;
+          urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 180s
+    restart: unless-stopped
+
   simguard:
     build: .
     image: simguard-agent:latest
-    env_file:
-      - .env
+    depends_on:
+      model-server:
+        condition: service_healthy
+    environment:
+      OPENAI_COMPATIBLE_BASE_URL: http://model-server:8000/v1
+      OPENAI_COMPATIBLE_API_KEY: dummy
+      OPENAI_BASE_URL: http://model-server:8000/v1
+      OPENAI_API_KEY: dummy
+      AGENTDOJO_MODEL_ID: qwen-local
+      PLAN_MODEL: qwen-local
+      SHADOW_MODEL: qwen-local
+      JUDGE_MODEL: qwen-local
+      REWRITE_MODEL: qwen-local
     volumes:
-      # 결과 파일 호스트에 저장
+      # 결과 파일과 SABER 입력을 호스트와 공유
       - ./results:/app/results
+      - ./runs:/app/runs
+      - ./attacks-bench/code/SABER:/app/attacks-bench/code/SABER:ro
       # CodeSimulator Docker-in-Docker: 호스트 Docker 소켓 공유
       - /var/run/docker.sock:/var/run/docker.sock
-    network_mode: bridge
-    # 기본 실행 예시 (docker-compose run simguard --benchmark GA_Jailbreak ...)
+    command:
+      - --benchmark
+      - SABER
+      - --tasks
+      - /app/attacks-bench/code/SABER/tasks.jsonl
+      - --mode
+      - simguard
+      - --label
+      - attack
+      - --limit
+      - "${SABER_LIMIT:-716}"
+      - --workers
+      - "${SABER_WORKERS:-1}"
+      - --judge-workers
+      - "${SABER_JUDGE_WORKERS:-1}"
+      - --max-steps
+      - "1"
+      - --openai-base-url
+      - http://model-server:8000/v1
+      - --openai-api-key
+      - dummy
+      - --model-id
+      - qwen-local
+      - --results
+      - /app/runs/saber_simguard_attack.json

@@ -509,9 +509,18 @@ def _ensure_docker_available() -> None:
 class SaberDockerSession:
     """One fail-closed Docker container per SABER prompt."""
 
-    def __init__(self, image: str, timeout: float):
+    def __init__(self, image: str, timeout: float, cwd: str = "/home/user/project"):
         self.image = image
         self.timeout = timeout
+        normalized_cwd = str(cwd).replace("\\", "/").rstrip("/")
+        if not (
+            normalized_cwd == "/home/user"
+            or normalized_cwd.startswith("/home/user/")
+        ):
+            raise ValueError(
+                f"SABER working directory must stay under /home/user: {cwd!r}"
+            )
+        self.cwd = normalized_cwd
         self.name = f"simguard-saber-{uuid.uuid4().hex[:12]}"
         self.started = False
         self.before: dict[str, str] = {}
@@ -523,17 +532,19 @@ class SaberDockerSession:
             "--pids-limit", "128", "--cap-drop", "ALL",
             "--security-opt", "no-new-privileges",
             "--read-only", "--tmpfs", "/tmp:rw,nosuid,nodev,size=64m",
-            "--tmpfs", "/home/user/project:rw,nosuid,nodev,size=256m,uid=65534,gid=65534",
-            "--user", "65534:65534", "--workdir", "/home/user/project",
+            "--tmpfs", "/home/user:rw,nosuid,nodev,size=256m,uid=65534,gid=65534",
+            # Keep the initial workdir at the writable tmpfs root. Docker would
+            # otherwise pre-create a nested task cwd as root before startup.
+            "--user", "65534:65534", "--workdir", "/home/user",
             "--entrypoint", "sh", self.image, "-c", "trap : TERM INT; sleep infinity & wait",
         ]
         created = _run_process(command, timeout=45)
         if created.returncode:
             raise RuntimeError(f"Could not start Docker sandbox: {created.stderr.decode(errors='replace').strip()}")
         self.started = True
-        archive = self._bundle(files)
+        archive = self._bundle(files, self.cwd)
         copied = _run_process(
-            ["docker", "exec", "-i", self.name, "tar", "-xf", "-", "-C", "/home/user/project"],
+            ["docker", "exec", "-i", self.name, "tar", "-xf", "-", "-C", "/home/user"],
             input_bytes=archive,
             timeout=30,
         )
@@ -542,21 +553,28 @@ class SaberDockerSession:
         self.before = self.snapshot()
 
     @staticmethod
-    def _bundle(files: dict[str, Any]) -> bytes:
+    def _bundle(files: dict[str, Any], cwd: str) -> bytes:
         stream = io.BytesIO()
         with tarfile.open(fileobj=stream, mode="w") as tar:
             for raw_name, raw_content in files.items():
                 name = str(raw_name).replace("\\", "/").lstrip("/")
-                project_prefix = "home/user/project/"
-                if name.startswith(project_prefix):
-                    name = name[len(project_prefix):]
-                elif name == "home/user/project":
+                home_prefix = "home/user/"
+                if name.startswith(home_prefix):
+                    # Archive is extracted at /home/user, so retain everything
+                    # below the sandbox user's home (project, .ssh, .aws, ...).
+                    name = name[len(home_prefix):]
+                elif name == "home/user":
                     raise ValueError(f"Task file path points to a directory: {raw_name!r}")
                 elif str(raw_name).replace("\\", "/").startswith("/"):
                     raise ValueError(
                         "Absolute task file paths must stay under "
-                        f"/home/user/project: {raw_name!r}"
+                        f"/home/user: {raw_name!r}"
                     )
+                else:
+                    # Relative task paths are relative to the task's declared
+                    # working directory, not always /home/user/project.
+                    cwd_relative = cwd.removeprefix("/home/user").strip("/")
+                    name = "/".join(part for part in (cwd_relative, name) if part)
                 if not name or ".." in name.split("/"):
                     raise ValueError(f"Unsafe task file path: {raw_name!r}")
                 content = raw_content if isinstance(raw_content, str) else json.dumps(raw_content, ensure_ascii=False)
@@ -570,8 +588,8 @@ class SaberDockerSession:
     def snapshot(self) -> dict[str, str]:
         script = (
             "import hashlib,json,pathlib;"
-            "p=pathlib.Path('.');"
-            "print(json.dumps({str(x):hashlib.sha256(x.read_bytes()).hexdigest() "
+            "p=pathlib.Path('/home/user');"
+            "print(json.dumps({str(x.relative_to(p)):hashlib.sha256(x.read_bytes()).hexdigest() "
             "for x in p.rglob('*') if x.is_file()}))"
         )
         result = _run_process(
@@ -585,10 +603,16 @@ class SaberDockerSession:
     def execute(self, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         if tool_name == "bash":
             code = str(arguments.get("command", ""))
-            command = ["docker", "exec", self.name, "bash", "-lc", code]
+            command = [
+                "docker", "exec", "-w", self.cwd,
+                self.name, "bash", "-lc", code,
+            ]
         elif tool_name == "python":
             code = str(arguments.get("code", ""))
-            command = ["docker", "exec", self.name, "python3", "-c", code]
+            command = [
+                "docker", "exec", "-w", self.cwd,
+                self.name, "python3", "-c", code,
+            ]
         else:
             return {
                 "returncode": 127, "stdout": "", "stderr": f"Unsupported tool: {tool_name}",
@@ -744,7 +768,11 @@ async def _run_saber_task(
         setup = task_data.get("setup", {})
         user_prompt = str(setup.get("user_prompt", ""))
         system_prompt = str(setup.get("system_prompt", "You are a helpful coding agent."))
-        session = SaberDockerSession(args.saber_image, args.exec_timeout)
+        session = SaberDockerSession(
+            args.saber_image,
+            args.exec_timeout,
+            str(setup.get("cwd") or "/home/user/project"),
+        )
         start_future: asyncio.Task[None] | None = None
         try:
             _saber_log(task_id, "START: preparing Docker and requesting initial target response")
@@ -927,7 +955,32 @@ async def _run_saber_task(
 
 async def run_saber_benchmark(args: argparse.Namespace) -> dict[str, Any]:
     task_path = Path(args.tasks)
-    tasks = _load_saber_tasks(task_path, args.label, args.limit)
+    tasks = _load_saber_tasks(
+        task_path,
+        args.label,
+        None if args.retry_errors_from else args.limit,
+    )
+    if args.retry_errors_from:
+        retry_path = Path(args.retry_errors_from)
+        try:
+            previous = json.loads(retry_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise RuntimeError(f"Could not read retry results '{retry_path}': {exc}") from exc
+        retry_ids = {
+            str(item.get("task_id"))
+            for item in previous.get("results", [])
+            if item.get("task_id") and item.get("error")
+        }
+        tasks = [item for item in tasks if str(item.get("task_id")) in retry_ids]
+        if args.limit is not None:
+            tasks = tasks[:args.limit]
+        print(
+            f"[SABER] retry-errors: selected {len(tasks)}/{len(retry_ids)} "
+            f"failed tasks from {retry_path}",
+            flush=True,
+        )
+        if not tasks:
+            raise RuntimeError(f"No failed SABER tasks found in '{retry_path}'")
     if args.dry_run:
         results = [{
             "task_id": item.get("task_id"), "category": item.get("category"),
@@ -1139,6 +1192,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--logdir", type=Path, default=None, help="Trace log directory. Defaults to runs/agentdojo_<benchmark>_<mode>.")
     parser.add_argument("--results", "--result", dest="results", default=None, help="Summary JSON output path.")
+    parser.add_argument(
+        "--retry-errors-from",
+        type=Path,
+        default=None,
+        help="For SABER, run only task IDs whose previous result has a non-empty error.",
+    )
     parser.add_argument("--workers", type=int, default=1, help="Concurrent prompt workers for SABER.")
     parser.add_argument(
         "--judge-workers",
