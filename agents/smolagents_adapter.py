@@ -747,7 +747,6 @@ async def _run_with_rag(task: str, mode: str, contexts: list[str]) -> dict:
             user_query=task,
             contexts=seen["contexts"] or "\n\n".join(contexts),
             answer=answer,
-            profile="rag_poison",
         )
         blocked = trace.decision == Decision.BLOCK
         viol = {k: round(v["score"], 2) for k, v in trace.axis_detail.items() if v["violation"]}

@@ -58,20 +58,19 @@ class SimGuardInterceptor:
         user_query: str,
         contexts: str,
         answer: str = "",
-        profile: str = "rag_poison",
         clean_answer: str | None = None,
         ground_truth: str | None = None,
     ) -> SimulationTrace:
-        """다축 독립 평가. 공격 유형에 맞는 프로필로 필요한 축만 활성화한다.
+        """통합 다축 독립 평가. 공격 유형별 profile을 나누지 않는다.
 
-        축 점수는 평균 내지 않는다. 활성 축 중 하나라도 임계를 넘으면 BLOCK이다.
+        축 점수는 평균 내지 않는다. 어떤 축이든 임계를 넘으면 BLOCK이다.
         clean_answer(정상 문맥으로 만든 답)를 함께 주면 오염이 결론을 바꿨는지
         반사실 비교로 판정할 수 있어 integrity 정확도가 크게 오른다.
         """
         from simguard.models import SimulationBackend
         from simguard.simulation.judges.axis_judge import AxisJudge
 
-        events, score, detail = await AxisJudge(profile).judge(
+        events, score, detail = await AxisJudge().judge(
             user_query=user_query,
             contexts=contexts,
             answer=answer,
@@ -121,8 +120,7 @@ class SimGuardInterceptor:
         """에이전트가 실제로 생성한 계획을 시뮬레이션한 뒤 평가한다.
 
         흐름: 실제 계획 -> BehaviorSimulator(계획대로 실행하면 나올 출력)
-              -> BehaviorJudge(그 출력을 평가) -> ALLOW / BLOCK
-        (final_answer·retrieval 경로는 AxisJudge 다축 평가를 쓴다)
+              -> AxisJudge(공통 다축 평가) -> ALLOW / BLOCK
 
         계획을 상상해 만들지 않고 방금 생성된 원문을 시뮬레이터에 넘기는 것이 핵심이다.
         """
@@ -151,7 +149,7 @@ class SimGuardInterceptor:
         from simguard.models import SimulationBackend
         from simguard.simulation.judges.axis_judge import AxisJudge
 
-        events, score, detail = await AxisJudge("jailbreak").judge(
+        events, score, detail = await AxisJudge().judge(
             user_query=user_request, contexts="", answer=answer,
         )
         trace = SimulationTrace(

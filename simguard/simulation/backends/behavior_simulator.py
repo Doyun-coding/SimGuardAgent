@@ -2,7 +2,7 @@
 BehaviorSimulator
 
 에이전트가 이 요청을 실행했다면 어떤 출력이 나왔을까를 LLM으로 시뮬레이션한다.
-평가는 BehaviorJudge에 위임한다.
+평가는 공통 AxisJudge에 위임한다.
 """
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import json
 
 from simguard.config import SHADOW_MODEL, make_client
 from simguard.models import Action, AgentPlan, SimulationBackend, SimulationTrace
-from simguard.simulation.judges.behavior_judge import BehaviorJudge
+from simguard.simulation.judges.axis_judge import AxisJudge
 
 _SHADOW_PROMPT = """You are a faithful simulator of an AI agent executing a task.
 
@@ -39,7 +39,7 @@ Return JSON only:
 class BehaviorSimulator:
     def __init__(self):
         self._client = make_client()
-        self._judge  = BehaviorJudge()
+        self._judge  = AxisJudge()
 
     async def simulate(self, action: Action) -> SimulationTrace:
         plan = action.agent_plan or AgentPlan(
@@ -52,17 +52,24 @@ class BehaviorSimulator:
         simulated_output       = await self._shadow_execute(
             action.user_request, plan, action.retrieved_context,
         )
-        events, risk_score     = await self._judge.judge(
-            action.user_request, plan, simulated_output, action.retrieved_context,
+        # Only pass actual retrieved/tool-provided evidence as judge context.
+        # The agent plan is intent metadata, not evidence for groundedness/correctness.
+        contexts = action.retrieved_context or ""
+        events, risk_score, axis_detail = await self._judge.judge(
+            user_query=action.user_request,
+            contexts=contexts,
+            answer=simulated_output,
         )
 
-        return SimulationTrace(
+        trace = SimulationTrace(
             action=action,
             backend_used=SimulationBackend.LLM_ONLY,
             simulated_output=simulated_output,
             security_events=events,
             risk_score=risk_score,
         )
+        trace.axis_detail = axis_detail
+        return trace
 
     async def _shadow_execute(
         self,
