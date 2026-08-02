@@ -158,7 +158,20 @@ def _get_adapter(agent: str):
     if agent == "agentdojo":
         from agents.agentdojo_adapter import run_task
         return run_task
-    raise ValueError(f"Unknown agent: {agent}. Available: smolagents, agentdojo")
+    if agent == "autogen":
+        from agents.autogen.autogen_adapter import run_task
+        return run_task
+    if agent in {"swe-agent", "sweagent"}:
+        import importlib.util
+
+        adapter_path = _REPO_ROOT / "agents" / "SWE-agent" / "swe-agent_adapter.py"
+        spec = importlib.util.spec_from_file_location("agents.swe_agent_adapter", adapter_path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Could not load SWE-agent adapter: {adapter_path}")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.run_task
+    raise ValueError(f"Unknown agent: {agent}. Available: smolagents, agentdojo, autogen, swe-agent")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -470,7 +483,7 @@ def analyze(agent: str | None = None, benchmark: str | None = None, mode: str | 
 def main():
     parser = argparse.ArgumentParser(description="벤치마크 러너")
     parser.add_argument("--agent",     default="smolagents",
-                        help="에이전트 어댑터 (smolagents)")
+                        help="에이전트 어댑터 (smolagents / agentdojo / autogen / swe-agent)")
     parser.add_argument("--benchmark", default="harmful",
                         choices=list(BENCHMARKS),
                         help="벤치마크 (harmful / ga-jailbreak / safedial)")
