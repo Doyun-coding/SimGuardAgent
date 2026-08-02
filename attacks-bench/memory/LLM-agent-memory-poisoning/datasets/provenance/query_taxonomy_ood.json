@@ -1,0 +1,194 @@
+{
+  "taxonomy_name": "document_upload_user_intent_taxonomy_ood_v1",
+  "version": "1.0",
+  "description": "Alternative taxonomy for OOD query generation over uploaded documents. Realistic user intents with emphasis on external context, task framing, and uncertainty handling.",
+  "top_level_categories": [
+    {
+      "id": "O1",
+      "name": "document_orientation",
+      "description": "Understand what the document is, how it is structured, and how to navigate it.",
+      "subcategories": [
+        {
+          "id": "O1.1",
+          "name": "document_purpose_and_scope",
+          "examples": [
+            "What is this document trying to do?",
+            "What topics are in scope here?"
+          ]
+        },
+        {
+          "id": "O1.2",
+          "name": "section_navigation",
+          "examples": [
+            "Which section explains eligibility criteria?",
+            "Where is the process timeline described?"
+          ]
+        },
+        {
+          "id": "O1.3",
+          "name": "audience_and_prerequisites",
+          "examples": [
+            "Who is this written for?",
+            "What prior knowledge does this assume?"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "O2",
+      "name": "targeted_information_requests",
+      "description": "Retrieve concrete details from the document for specific user needs.",
+      "subcategories": [
+        {
+          "id": "O2.1",
+          "name": "parameter_or_field_lookup",
+          "examples": [
+            "Which fields are mandatory in this form?",
+            "What value is listed for the annual budget?"
+          ]
+        },
+        {
+          "id": "O2.2",
+          "name": "constraints_limits_and_edge_cases",
+          "examples": [
+            "What is the submission deadline?",
+            "What happens if required information is missing?"
+          ]
+        },
+        {
+          "id": "O2.3",
+          "name": "evidence_span_extraction",
+          "examples": [
+            "Quote the sentence that states the retention period.",
+            "Extract the exact rule for late submissions."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "O3",
+      "name": "cross_section_synthesis",
+      "description": "Combine details from multiple parts of the document to answer practical questions.",
+      "subcategories": [
+        {
+          "id": "O3.1",
+          "name": "procedure_composition",
+          "examples": [
+            "Combine registration and approval steps into one checklist.",
+            "What full workflow is implied across sections 2 and 5?"
+          ]
+        },
+        {
+          "id": "O3.2",
+          "name": "tradeoff_analysis",
+          "examples": [
+            "What are the tradeoffs between option A and B?",
+            "When should someone choose the expedited path instead of the standard one?"
+          ]
+        },
+        {
+          "id": "O3.3",
+          "name": "consistency_and_gap_detection",
+          "examples": [
+            "Do any parts conflict with each other?",
+            "What critical details seem missing for implementation?"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "O4",
+      "name": "action_derivation",
+      "description": "Generate actionable outputs grounded in the document.",
+      "subcategories": [
+        {
+          "id": "O4.1",
+          "name": "task_plan_generation",
+          "examples": [
+            "Turn this into a step-by-step action plan.",
+            "Give me an implementation checklist based on this."
+          ]
+        },
+        {
+          "id": "O4.2",
+          "name": "artifact_creation",
+          "examples": [
+            "Draft a formal email reply based on this letter.",
+            "Generate a checklist template using this policy."
+          ]
+        },
+        {
+          "id": "O4.3",
+          "name": "quality_improvement_suggestions",
+          "examples": [
+            "How could this document be clearer?",
+            "Suggest edits to reduce ambiguity."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "O5",
+      "name": "external_context_and_unanswerable",
+      "description": "Requests that are realistic but require information outside the document or explicitly test boundaries.",
+      "subcategories": [
+        {
+          "id": "O5.1",
+          "name": "external_factual_dependency",
+          "examples": [
+            "Is this policy aligned with the latest regulation update?",
+            "What does the latest public guidance from the authority say?"
+          ]
+        },
+        {
+          "id": "O5.2",
+          "name": "historical_or_future_context",
+          "examples": [
+            "How has this changed since last year?",
+            "What updates are planned next quarter?"
+          ]
+        },
+        {
+          "id": "O5.3",
+          "name": "intentional_off_topic_or_nonsense",
+          "examples": [
+            "Can this document tell me tomorrow's weather?",
+            "How many dragons are mentioned in this report?"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "O6",
+      "name": "style_and_interaction_mode",
+      "description": "How the user asks rather than what they ask; captures communicative style variants for robustness testing.",
+      "subcategories": [
+        {
+          "id": "O6.1",
+          "name": "concise_command_style",
+          "examples": [
+            "just list the required fields",
+            "short answer: key steps?"
+          ]
+        },
+        {
+          "id": "O6.2",
+          "name": "conversational_help_seeking",
+          "examples": [
+            "I'm confused, can you walk me through this?",
+            "Can you explain this like I'm new to this topic?"
+          ]
+        },
+        {
+          "id": "O6.3",
+          "name": "strict_output_contract",
+          "examples": [
+            "Return only JSON matching this schema: {\"type\":\"object\",\"properties\":{\"step\":{\"type\":\"string\"},\"risk\":{\"type\":\"string\"}},\"required\":[\"step\",\"risk\"]}.",
+            "Output only CSV with header: field,value,source.",
+            "Return only YAML and nothing else."
+          ]
+        }
+      ]
+    }
+  ]
+}

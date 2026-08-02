@@ -1,0 +1,23 @@
+{
+  "agent": "agentdojo",
+  "benchmark": "slack",
+  "suites": [
+    "slack"
+  ],
+  "mode": "transformers_pi_detector",
+  "label": "attack",
+  "defense": "transformers_pi_detector",
+  "attack": "tool_knowledge",
+  "benchmark_version": "v1.2.2",
+  "limit": null,
+  "workers": 1,
+  "model": "openai-compatible",
+  "model_id": "qwen/qwen3.5-9b",
+  "openai_base_url": "http://localhost:10000/v1",
+  "logdir": "runs/agentdojo_slack_transformers_pi_detector_attack",
+  "num_cases": 105,
+  "utility_success": 34,
+  "utility_rate": 0.3238095238095238,
+  "injection_success": 20,
+  "asr": 0.19047619047619047
+}

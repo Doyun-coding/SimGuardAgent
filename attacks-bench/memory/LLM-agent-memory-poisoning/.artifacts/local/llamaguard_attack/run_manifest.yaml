@@ -1,0 +1,33 @@
+success: true
+task_count: 1
+log_count: 1
+scored_log_count: 0
+log_dir: .artifacts/local/llamaguard_attack/logs
+bundle_dir: ''
+analysis_dir: .artifacts/local/llamaguard_attack/analysis
+config_hash: 8afe5ffb15ac5da833856ec0cb82d30446d2210bf6cc90a967cbd783fd69a451
+output_mode: fresh
+datasets:
+- label: behavior-attack
+  dataset_file: datasets/released/generated/behaviour_true_optimized_with_memories.json
+  resolved_path: /root/doyun/SimGuardAgent/attacks-bench/memory/LLM-agent-memory-poisoning/datasets/released/generated/behaviour_true_optimized_with_memories.json
+  sample_count: 250
+  evaluation_mode: attack
+  attack: ''
+  subcategory: ''
+  category: ''
+  doc_domain: ''
+  domain_seed: ''
+scoring:
+  during_eval: full
+  post_eval_scorers: []
+  post_eval_action: overwrite
+analysis_outputs:
+  summary_json: .artifacts/local/llamaguard_attack/analysis/summary.json
+  summary_csv: .artifacts/local/llamaguard_attack/analysis/summary.csv
+  summary_md: .artifacts/local/llamaguard_attack/analysis/summary.md
+  attack_result_tables_md: .artifacts/local/llamaguard_attack/analysis/attack_result_tables.md
+  model_x_defense_memory_write_rate: .artifacts/local/llamaguard_attack/analysis/slices/model_x_defense_memory_write_rate.csv
+  dataset_x_defense_memory_write_rate: .artifacts/local/llamaguard_attack/analysis/slices/dataset_x_defense_memory_write_rate.csv
+  model_x_defense_semantic_match_rate: .artifacts/local/llamaguard_attack/analysis/slices/model_x_defense_semantic_match_rate.csv
+  dataset_x_defense_semantic_match_rate: .artifacts/local/llamaguard_attack/analysis/slices/dataset_x_defense_semantic_match_rate.csv

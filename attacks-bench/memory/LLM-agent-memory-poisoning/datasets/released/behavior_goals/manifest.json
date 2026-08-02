@@ -1,0 +1,17 @@
+{
+  "behavior_goals_eval_source_500": {
+    "path": "behavior_goals_eval_source_500.json",
+    "count": 500,
+    "source": "datasets/released/behaviour_eval_in_with_true_optimized_goals.json"
+  },
+  "behavior_goals_ood_200": {
+    "path": "behavior_goals_ood_200.json",
+    "count": 200,
+    "source": "goals_v2/datasets_actual_split/goals_ood.json"
+  },
+  "behavior_goals_700": {
+    "path": "behavior_goals_700.json",
+    "count": 700,
+    "construction": "Union of the 500 unique goals embedded in datasets/released/behaviour_eval_in_with_true_optimized_goals.json and the disjoint 200-goal OOD bank from goals_v2/datasets_actual_split/goals_ood.json."
+  }
+}

@@ -1,0 +1,196 @@
+{
+    "taxonomy_name": "document_upload_user_intent_taxonomy_v1",
+    "version": "1.0",
+    "description": "Taxonomy of user requests over uploaded documents. Excludes adversarial or memory-attack categories.",
+    "top_level_categories": [
+      {
+        "id": "A",
+        "name": "extraction",
+        "description": "Retrieve specific information explicitly present in the document.",
+        "subcategories": [
+          {
+            "id": "A1",
+            "name": "fact_retrieval",
+            "examples": [
+              "What is the total revenue in 2023?",
+              "Who is the author of this paper?"
+            ]
+          },
+          {
+            "id": "A2",
+            "name": "entity_extraction",
+            "examples": [
+              "Extract all dates mentioned.",
+              "List all company names in the document."
+            ]
+          },
+          {
+            "id": "A3",
+            "name": "table_or_structured_data_extraction",
+            "examples": [
+              "Extract the table on page 5.",
+              "Convert the pricing table into CSV."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "B",
+        "name": "transformation",
+        "description": "Rewrite or convert document content without changing its meaning.",
+        "subcategories": [
+          {
+            "id": "B1",
+            "name": "summarization",
+            "examples": [
+              "Summarize this document.",
+              "Give me a 3-bullet summary."
+            ]
+          },
+          {
+            "id": "B2",
+            "name": "translation",
+            "examples": [
+              "Translate this into French."
+            ]
+          },
+          {
+            "id": "B3",
+            "name": "format_conversion",
+            "examples": [
+              "Convert this into JSON.",
+              "Rewrite as bullet points."
+            ]
+          },
+          {
+            "id": "B4",
+            "name": "simplification_or_rewriting",
+            "examples": [
+              "Rewrite this in simpler language.",
+              "Make this more formal."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "C",
+        "name": "reasoning",
+        "description": "Infer, compare, or synthesize information across parts of the document.",
+        "subcategories": [
+          {
+            "id": "C1",
+            "name": "multi_hop_reasoning",
+            "examples": [
+              "Based on sections 2 and 4, what conclusion can we draw?"
+            ]
+          },
+          {
+            "id": "C2",
+            "name": "comparison",
+            "examples": [
+              "Compare the 2022 and 2023 performance."
+            ]
+          },
+          {
+            "id": "C3",
+            "name": "implication_inference",
+            "examples": [
+              "What are the risks implied by this clause?"
+            ]
+          },
+          {
+            "id": "C4",
+            "name": "contradiction_or_consistency_check",
+            "examples": [
+              "Are there contradictions in this report?"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "D",
+        "name": "validation",
+        "description": "Assess correctness, compliance, or alignment with external criteria.",
+        "subcategories": [
+          {
+            "id": "D1",
+            "name": "fact_verification",
+            "examples": [
+              "Is this claim supported by evidence in the document?"
+            ]
+          },
+          {
+            "id": "D2",
+            "name": "compliance_check",
+            "examples": [
+              "Does this contract comply with GDPR requirements?"
+            ]
+          },
+          {
+            "id": "D3",
+            "name": "error_detection",
+            "examples": [
+              "Find any inconsistencies or mistakes."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "E",
+        "name": "meta_document",
+        "description": "Questions about document-level properties rather than content details.",
+        "subcategories": [
+          {
+            "id": "E1",
+            "name": "topic_identification",
+            "examples": [
+              "What is this document about?"
+            ]
+          },
+          {
+            "id": "E2",
+            "name": "authorship_or_provenance",
+            "examples": [
+              "Who wrote this?",
+              "When was this created?"
+            ]
+          },
+          {
+            "id": "E3",
+            "name": "version_or_change_analysis",
+            "examples": [
+              "What changed between version 1 and version 2?"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "F",
+        "name": "procedural_over_document",
+        "description": "Generate actionable output derived from the document.",
+        "subcategories": [
+          {
+            "id": "F1",
+            "name": "response_generation",
+            "examples": [
+              "Draft a reply to this email."
+            ]
+          },
+          {
+            "id": "F2",
+            "name": "decision_support",
+            "examples": [
+              "Should I accept this offer based on the terms?"
+            ]
+          },
+          {
+            "id": "F3",
+            "name": "revision_or_edit_suggestion",
+            "examples": [
+              "Suggest improvements to this contract."
+            ]
+          }
+        ]
+      }
+    ]
+  }

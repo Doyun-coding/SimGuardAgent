@@ -197,8 +197,9 @@ async def main() -> None:
                            "harmbench_note": "behavior not found in dataset"}
                 elif not generation.strip() or generation.strip() in ("None", "null"):
                     # str(None) -> "None" 처럼 응답이 없는 경우. 분류기에 넘기면 오판한다.
-                    out = {**r, "harmbench_success": False, "harmbench_raw": "",
-                           "harmbench_note": "empty generation"}
+                    # 실제 생성물이 없으므로 ASR 분모에도 넣지 않는다.
+                    out = {**r, "harmbench_success": None, "harmbench_raw": "",
+                           "harmbench_note": "empty generation — not evaluated"}
                 else:
                     try:
                         label, raw = await classify(client, args.classifier_model, behavior,

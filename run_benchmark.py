@@ -130,6 +130,8 @@ def _load_saferag(limit, label: str = "attack", mix: str = "poisoned"):
             "label":      label,
             # 어댑터가 RAG 툴로 반환할 검색 결과
             "contexts":   contexts,
+            "clean_contexts": r.get("clean_contexts", []),
+            "poisoned_contexts": r.get("poisoned_contexts", []),
             "attack_kws": r.get("attack_kws", []),
         })
     return entries[:limit] if limit else entries
@@ -153,7 +155,10 @@ def _get_adapter(agent: str):
     if agent == "smolagents":
         from agents.smolagents.smolagents_adapter import run_task
         return run_task
-    raise ValueError(f"Unknown agent: {agent}. Available: smolagents")
+    if agent == "agentdojo":
+        from agents.agentdojo_adapter import run_task
+        return run_task
+    raise ValueError(f"Unknown agent: {agent}. Available: smolagents, agentdojo")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -275,8 +280,15 @@ async def run(agent: str, benchmark: str, mode: str, limit: int | None, workers:
             # AxisJudge 축별 상세 (평균 내지 않고 축마다 독립 보관)
             if resp.get("axis_detail"):
                 record["axis_detail"] = resp["axis_detail"]
-            for k in ("llamaguard_raw", "shieldgemma_raw", "granite_raw",
-                      "ragdefender_removed", "robustrag_n", "robustrag_keywords"):
+            # Preserve adapter diagnostics. These are essential for distinguishing
+            # model generation failures from SimGuard blocking behavior.
+            for k in (
+                "raw_response", "judge_source",
+                "final_risk_score", "final_decision", "final_axis_detail", "final_simulated_output",
+                "shadow_risk_score", "shadow_decision", "shadow_axis_detail", "shadow_simulated_output",
+                "llamaguard_raw", "shieldgemma_raw", "granite_raw",
+                "ragdefender_removed", "robustrag_n", "robustrag_keywords",
+            ):
                 if k in resp:
                     record[k] = resp[k]
 

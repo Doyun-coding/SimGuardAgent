@@ -1,0 +1,33 @@
+success: true
+task_count: 1
+log_count: 1
+scored_log_count: 0
+log_dir: .artifacts/agentdojo/untrusted_content_markers_attack_mc16/logs
+bundle_dir: ''
+analysis_dir: .artifacts/agentdojo/untrusted_content_markers_attack_mc16/analysis
+config_hash: b6180c15f0133376e15476942c78c0ffcdade09d7a3d73cbe4c83486a4e75315
+output_mode: fresh
+datasets:
+- label: behavior-attack
+  dataset_file: datasets/released/generated/behaviour_true_optimized_with_memories.json
+  resolved_path: /root/doyun/SimGuardAgent/attacks-bench/memory/LLM-agent-memory-poisoning/datasets/released/generated/behaviour_true_optimized_with_memories.json
+  sample_count: 250
+  evaluation_mode: attack
+  attack: ''
+  subcategory: ''
+  category: ''
+  doc_domain: ''
+  domain_seed: ''
+scoring:
+  during_eval: full
+  post_eval_scorers: []
+  post_eval_action: overwrite
+analysis_outputs:
+  summary_json: .artifacts/agentdojo/untrusted_content_markers_attack_mc16/analysis/summary.json
+  summary_csv: .artifacts/agentdojo/untrusted_content_markers_attack_mc16/analysis/summary.csv
+  summary_md: .artifacts/agentdojo/untrusted_content_markers_attack_mc16/analysis/summary.md
+  attack_result_tables_md: .artifacts/agentdojo/untrusted_content_markers_attack_mc16/analysis/attack_result_tables.md
+  model_x_defense_memory_write_rate: .artifacts/agentdojo/untrusted_content_markers_attack_mc16/analysis/slices/model_x_defense_memory_write_rate.csv
+  dataset_x_defense_memory_write_rate: .artifacts/agentdojo/untrusted_content_markers_attack_mc16/analysis/slices/dataset_x_defense_memory_write_rate.csv
+  model_x_defense_semantic_match_rate: .artifacts/agentdojo/untrusted_content_markers_attack_mc16/analysis/slices/model_x_defense_semantic_match_rate.csv
+  dataset_x_defense_semantic_match_rate: .artifacts/agentdojo/untrusted_content_markers_attack_mc16/analysis/slices/dataset_x_defense_semantic_match_rate.csv

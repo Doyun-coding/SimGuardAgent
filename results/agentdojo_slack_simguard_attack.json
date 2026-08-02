@@ -1,0 +1,23 @@
+{
+  "agent": "agentdojo",
+  "benchmark": "slack",
+  "suites": [
+    "slack"
+  ],
+  "mode": "simguard",
+  "label": "attack",
+  "defense": "simguard",
+  "attack": "tool_knowledge",
+  "benchmark_version": "v1.2.2",
+  "limit": null,
+  "workers": 48,
+  "model": "openai-compatible",
+  "model_id": "qwen/qwen3.5-9b",
+  "openai_base_url": "http://localhost:10000/v1",
+  "logdir": "runs/agentdojo_slack_simguard_attack",
+  "num_cases": 105,
+  "utility_success": 17,
+  "utility_rate": 0.1619047619047619,
+  "injection_success": 15,
+  "asr": 0.14285714285714285
+}

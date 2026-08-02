@@ -1,0 +1,34 @@
+success: true
+retry_mode: true
+retried_source_logs:
+- /root/doyun/SimGuardAgent/attacks-bench/memory/LLM-agent-memory-poisoning/.artifacts/local/simguard2_attack/logs/2026-08-02T05-19-34-00-00_sleeper-eval_73gqvnCsJvvkLrtb76tbEH.eval
+retried_log_count: 1
+scored_log_count: 0
+log_dir: .artifacts/local/simguard2_attack/logs
+analysis_dir: .artifacts/local/simguard2_attack/analysis
+config_hash: 093d5c3cfe44b18922df0d8dbf330a07c950e8be8dfa61959ab9c2403972c155
+output_mode: resume
+datasets:
+- label: behavior-attack
+  dataset_file: datasets/released/generated/behaviour_true_optimized_with_memories.json
+  resolved_path: /root/doyun/SimGuardAgent/attacks-bench/memory/LLM-agent-memory-poisoning/datasets/released/generated/behaviour_true_optimized_with_memories.json
+  sample_count: 250
+  evaluation_mode: attack
+  attack: ''
+  subcategory: ''
+  category: ''
+  doc_domain: ''
+  domain_seed: ''
+scoring:
+  during_eval: full
+  post_eval_scorers: []
+  post_eval_action: overwrite
+analysis_outputs:
+  summary_json: .artifacts/local/simguard2_attack/analysis/summary.json
+  summary_csv: .artifacts/local/simguard2_attack/analysis/summary.csv
+  summary_md: .artifacts/local/simguard2_attack/analysis/summary.md
+  attack_result_tables_md: .artifacts/local/simguard2_attack/analysis/attack_result_tables.md
+  model_x_defense_memory_write_rate: .artifacts/local/simguard2_attack/analysis/slices/model_x_defense_memory_write_rate.csv
+  dataset_x_defense_memory_write_rate: .artifacts/local/simguard2_attack/analysis/slices/dataset_x_defense_memory_write_rate.csv
+  model_x_defense_semantic_match_rate: .artifacts/local/simguard2_attack/analysis/slices/model_x_defense_semantic_match_rate.csv
+  dataset_x_defense_semantic_match_rate: .artifacts/local/simguard2_attack/analysis/slices/dataset_x_defense_semantic_match_rate.csv

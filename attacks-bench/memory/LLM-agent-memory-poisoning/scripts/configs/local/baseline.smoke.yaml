@@ -1,0 +1,49 @@
+# 로컬 vLLM(Qwen3.5-9B)으로 돌리는 baseline 스모크.
+# 원본 smoke/tool_based_main.limit1.smoke.yaml에서 모델만 로컬로 교체하고
+# defenses를 no-defense 하나로 줄였다.
+name: local-baseline-smoke
+output_dir: .artifacts/local/baseline_smoke
+
+datasets:
+  - label: behavior-with-memories
+    dataset_file: datasets/released/generated/behaviour_true_optimized_with_memories.json
+    evaluation_mode: attack
+
+attacks:
+  - label: actor-critic-no-markers
+    attack: universal_v2_optimized_without_markers
+
+memory_backend: tool
+mention_memory_system: true
+grader_model: openai-api/vllm/qwen/qwen3.5-9b
+
+scoring:
+  during_eval: full
+  post_eval_scorers: []
+  post_eval_action: overwrite
+
+retry:
+  retry_attempts: 3
+  retry_immediate: true
+  retry_wait: 10
+  retry_connections: 1.0
+  retry_on_error: 2
+
+eval:
+  limit: 3
+  max_tasks: 1
+  max_connections: 4
+  fail_on_error: false
+  bundle: false
+  max_retries: 3
+  attempt_timeout: 900
+
+models:
+  - label: qwen3.5-9b
+    model: openai-api/vllm/qwen/qwen3.5-9b
+    provider: generic
+    prompt_model: qwen3.5-9b
+
+defenses:
+  - label: no-defense
+    defense: ""

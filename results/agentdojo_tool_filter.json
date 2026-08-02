@@ -1,0 +1,26 @@
+{
+  "agent": "agentdojo",
+  "benchmark": "all",
+  "suites": [
+    "workspace",
+    "travel",
+    "banking",
+    "slack"
+  ],
+  "mode": "tool_filter",
+  "label": "attack",
+  "defense": "tool_filter",
+  "attack": "tool_knowledge",
+  "benchmark_version": "v1.2.2",
+  "limit": null,
+  "workers": 24,
+  "model": "openai-compatible",
+  "model_id": "qwen/qwen3.5-9b",
+  "openai_base_url": "http://localhost:10000/v1",
+  "logdir": "runs/agentdojo_all_tool_filter_attack",
+  "num_cases": 949,
+  "utility_success": 85,
+  "utility_rate": 0.08956796628029505,
+  "injection_success": 1,
+  "asr": 0.001053740779768177
+}

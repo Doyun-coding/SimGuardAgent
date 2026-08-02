@@ -1,0 +1,35 @@
+{
+  "source_datasets": {
+    "behaviour": "datasets/released/behaviour_eval_in_with_true_optimized_goals.json",
+    "agent": "datasets/released/agent_eval_in_with_true_optimized_goals.json",
+    "non_english": "datasets/released/non_english_ood_eval_with_true_optimized_goals_and_queries_mixed_seed_memories.json"
+  },
+  "generated_datasets": {
+    "behaviour": {
+      "with_memories": "datasets/released/generated/behaviour_true_optimized_with_memories.json",
+      "without_memories": "datasets/released/generated/behaviour_true_optimized_without_memories.json"
+    },
+    "agent": {
+      "with_memories": "datasets/released/generated/agent_true_optimized_with_memories.json",
+      "without_memories": "datasets/released/generated/agent_true_optimized_without_memories.json"
+    },
+    "non_english": {
+      "with_memories": "datasets/released/generated/non_english_true_optimized_with_memories.json",
+      "without_memories": "datasets/released/generated/non_english_true_optimized_without_memories.json"
+    }
+  },
+  "counts": {
+    "behaviour": {
+      "with_memories": 250,
+      "without_memories": 250
+    },
+    "agent": {
+      "with_memories": 100,
+      "without_memories": 100
+    },
+    "non_english": {
+      "with_memories": 100,
+      "without_memories": 100
+    }
+  }
+}

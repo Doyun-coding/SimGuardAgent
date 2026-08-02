@@ -18,7 +18,6 @@ from __future__ import annotations
 
 from simguard.models import Action, ActionType, SimulationTrace
 from simguard.simulation.backends.behavior_simulator import BehaviorSimulator
-from simguard.simulation.backends.code_simulator import CodeSimulator
 from simguard.simulation.backends.tool_call_simulator import ToolCallSimulator
 
 _SHELL_LANGS = {"bash", "sh", "shell", "cmd", "powershell", "zsh"}
@@ -35,9 +34,12 @@ _READ_TOOL_HINTS = (
 
 class SimulationManager:
     def __init__(self):
-        self._llm     = BehaviorSimulator()
-        self._microvm = CodeSimulator()
-        self._tool    = ToolCallSimulator()
+        self._llm = BehaviorSimulator()
+        self._tool = ToolCallSimulator()
+        # Code/Shell execution is expensive and may require Docker. Load it only
+        # when a code or shell action is actually evaluated. VESSL prompt-level
+        # behavior experiments do not need this backend.
+        self._microvm = None
 
     def _classify(self, action: Action) -> ActionType:
         if action.action_type:
@@ -64,6 +66,10 @@ class SimulationManager:
         action_type = self._classify(action)
 
         if action_type in (ActionType.CODE_EXECUTION, ActionType.SHELL):
+            if self._microvm is None:
+                from simguard.simulation.backends.code_simulator import CodeSimulator
+
+                self._microvm = CodeSimulator()
             return await self._microvm.simulate(action)
 
         if action_type == ActionType.TOOL_CALL:

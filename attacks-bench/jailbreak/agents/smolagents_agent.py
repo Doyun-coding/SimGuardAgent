@@ -38,7 +38,7 @@ def _make_agent():
     from smolagents.default_tools import DuckDuckGoSearchTool
 
     model = OpenAIModel(
-        model_id="openrouter/openai/gpt-5-mini",
+        model_id=os.getenv("PLAN_MODEL", "qwen/qwen3.5-9b"),
         api_base=os.environ["OPENAI_BASE_URL"],
         api_key=os.environ["OPENAI_API_KEY"],
         client_kwargs={"http_client": httpx.Client(verify=False)},
@@ -86,57 +86,41 @@ def _get_initial_plan(task: str, agent) -> list[str]:
     return queries
 
 
-async def _run_simguard(task: str, agent) -> dict:
-    from simguard.models import AgentPlan, SimulationTrace
-    from simguard.simworld.shadow_runner import run_shadow_execution
-    from simguard.analyzer.jailbreak_detector import analyze_jailbreak
-    from simguard.decision.decision_controller import make_decision
-
-    # 1. 플랜 추출 (LLM 1회 호출, 툴 실행 없음)
-    sub_queries = await asyncio.get_event_loop().run_in_executor(
-        None, _get_initial_plan, task, agent
-    )
-
-    plan = AgentPlan(
-        agent_role="smolagents ToolCallingAgent",
-        agent_persona="web search agent",
-        sub_queries=sub_queries,
-        research_focus=task,
-    )
-
-    # 2. SimWorld 실행
-    shadow = await run_shadow_execution(task, plan)
-
-    # 3. Jailbreak 분석
-    events, risk_score = await analyze_jailbreak(task, plan, shadow)
-
-    # 4. 결정 (BLOCK 또는 ALLOW)
-    decision = make_decision(risk_score)
-
-    if decision == "BLOCK":
-        return {
-            "report":            None,
-            "simguard_decision": decision,
-            "risk_score":        risk_score,
-            "error":             None,
-        }
-
-    # ALLOW → 실제 에이전트 실행
-    try:
-        result = await asyncio.wait_for(
-            asyncio.get_event_loop().run_in_executor(None, agent.run, task),
-            timeout=TIMEOUT,
+async def _call_target_model(task: str) -> str:
+    async with httpx.AsyncClient(verify=False, timeout=TIMEOUT) as client:
+        resp = await client.post(
+            os.environ["OPENAI_BASE_URL"].rstrip("/") + "/chat/completions",
+            headers={
+                "Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": os.getenv("PLAN_MODEL", "qwen/qwen3.5-9b"),
+                "messages": [{"role": "user", "content": task}],
+                "temperature": 0,
+                "max_tokens": 1024,
+            },
         )
-        return {
-            "report":            str(result),
-            "simguard_decision": decision,
-            "risk_score":        risk_score,
-            "error":             None,
-        }
-    except asyncio.TimeoutError:
-        return {"report": None, "simguard_decision": decision, "risk_score": risk_score, "error": "timeout"}
-    except Exception as e:
-        return {"report": None, "simguard_decision": decision, "risk_score": risk_score, "error": str(e)[:200]}
+        resp.raise_for_status()
+        body = resp.json()
+    msg = body["choices"][0]["message"]
+    return msg.get("content") or msg.get("reasoning_content") or ""
+
+
+async def _run_simguard(task: str) -> dict:
+    from simguard import SimGuardInterceptor
+
+    response = await _call_target_model(task)
+    trace = await SimGuardInterceptor().intercept_final_answer(task, response)
+    decision = getattr(trace.decision, "value", str(trace.decision))
+    risk_score = trace.risk_score
+
+    return {
+        "report":            response,
+        "simguard_decision": decision,
+        "risk_score":        risk_score,
+        "error":             None,
+    }
 
 
 LLAMA_GUARD_MODEL   = "openrouter/meta-llama/llama-guard-4-12b"
@@ -212,11 +196,9 @@ class SmolagentsAdapter(AgentAdapter):
         return self._local.agent
 
     async def query(self, task: str, mode: str, **kwargs) -> dict:
-        agent = self._get_agent()
-
         if mode == "simguard":
             try:
-                return await asyncio.wait_for(_run_simguard(task, agent), timeout=TIMEOUT)
+                return await asyncio.wait_for(_run_simguard(task), timeout=TIMEOUT)
             except asyncio.TimeoutError:
                 return {"report": None, "simguard_decision": None, "risk_score": None, "error": "timeout"}
             except Exception as e:
@@ -235,6 +217,8 @@ class SmolagentsAdapter(AgentAdapter):
                 "error":             None,
                 "guard_verdict":     verdict,
             }
+
+        agent = self._get_agent()
 
         # baseline
         try:

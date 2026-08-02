@@ -1,0 +1,33 @@
+success: true
+task_count: 1
+log_count: 1
+scored_log_count: 0
+log_dir: .artifacts/local/clean_benign/logs
+bundle_dir: ''
+analysis_dir: .artifacts/local/clean_benign/analysis
+config_hash: 9cd7e3a5fc4657a00bdb521a7d9f7024b0dd94dd66b650b67ee4491e3773bf9c
+output_mode: fresh
+datasets:
+- label: behavior-benign
+  dataset_file: datasets/released/benign_save/merged_eval_in_benign_save_70_true_opt.json
+  resolved_path: /root/doyun/SimGuardAgent/attacks-bench/memory/LLM-agent-memory-poisoning/datasets/released/benign_save/merged_eval_in_benign_save_70_true_opt.json
+  sample_count: 70
+  evaluation_mode: benign_save
+  attack: ''
+  subcategory: ''
+  category: ''
+  doc_domain: ''
+  domain_seed: ''
+scoring:
+  during_eval: full
+  post_eval_scorers: []
+  post_eval_action: overwrite
+analysis_outputs:
+  summary_json: .artifacts/local/clean_benign/analysis/summary.json
+  summary_csv: .artifacts/local/clean_benign/analysis/summary.csv
+  summary_md: .artifacts/local/clean_benign/analysis/summary.md
+  attack_result_tables_md: .artifacts/local/clean_benign/analysis/attack_result_tables.md
+  model_x_defense_memory_write_rate: .artifacts/local/clean_benign/analysis/slices/model_x_defense_memory_write_rate.csv
+  dataset_x_defense_memory_write_rate: .artifacts/local/clean_benign/analysis/slices/dataset_x_defense_memory_write_rate.csv
+  model_x_defense_semantic_match_rate: .artifacts/local/clean_benign/analysis/slices/model_x_defense_semantic_match_rate.csv
+  dataset_x_defense_semantic_match_rate: .artifacts/local/clean_benign/analysis/slices/dataset_x_defense_semantic_match_rate.csv

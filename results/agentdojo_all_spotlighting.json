@@ -1,0 +1,26 @@
+{
+  "agent": "agentdojo",
+  "benchmark": "all",
+  "suites": [
+    "workspace",
+    "travel",
+    "banking",
+    "slack"
+  ],
+  "mode": "spotlighting_with_delimiting",
+  "label": "attack",
+  "defense": "spotlighting_with_delimiting",
+  "attack": "tool_knowledge",
+  "benchmark_version": "v1.2.2",
+  "limit": null,
+  "workers": 24,
+  "model": "openai-compatible",
+  "model_id": "qwen/qwen3.5-9b",
+  "openai_base_url": "http://localhost:10000/v1",
+  "logdir": "runs/agentdojo_all_spotlighting_with_delimiting_attack",
+  "num_cases": 949,
+  "utility_success": 743,
+  "utility_rate": 0.7829293993677555,
+  "injection_success": 116,
+  "asr": 0.12223393045310854
+}

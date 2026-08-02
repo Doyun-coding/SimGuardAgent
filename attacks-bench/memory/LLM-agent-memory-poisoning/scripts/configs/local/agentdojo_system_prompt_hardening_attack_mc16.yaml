@@ -1,0 +1,37 @@
+name: agentdojo-system_prompt_hardening_attack_mc16
+output_dir: .artifacts/agentdojo/system_prompt_hardening_attack_mc16
+datasets:
+  - label: behavior-attack
+    dataset_file: datasets/released/generated/behaviour_true_optimized_with_memories.json
+    evaluation_mode: attack
+attacks:
+  - label: actor-critic
+    attack: universal_v2_optimized_without_markers
+memory_backend: tool
+mention_memory_system: true
+grader_model: openai-api/vllm/qwen/qwen3.5-9b
+scoring:
+  during_eval: full
+  post_eval_scorers: []
+  post_eval_action: overwrite
+retry:
+  retry_attempts: 2
+  retry_immediate: true
+  retry_wait: 5
+  retry_connections: 1.0
+  retry_on_error: 1
+eval:
+  max_tasks: 2
+  max_connections: 16
+  fail_on_error: false
+  bundle: false
+  max_retries: 2
+  attempt_timeout: 900
+models:
+  - label: qwen3.5-9b
+    model: openai-api/vllm/qwen/qwen3.5-9b
+    provider: generic
+    prompt_model: qwen3.5-9b
+defenses:
+  - label: system_prompt_hardening
+    defense: "system_prompt_hardening"

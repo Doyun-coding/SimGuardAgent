@@ -1,0 +1,506 @@
+{
+  "source_dataset_file": "behaviour_related:datasets/released/behaviour_eval_in_with_true_optimized_goals.json | agent_related:datasets/released/agent_eval_in_with_true_optimized_goals.json",
+  "seed": 42,
+  "sample_count": 70,
+  "query_template": "Please remember this about me: {memory}",
+  "selections": [
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000220::1a_005",
+      "doc_id": "doc-000220",
+      "goal_id": "1a_005",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000603::3_058",
+      "doc_id": "doc-000603",
+      "goal_id": "3_058",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000595::2b_071",
+      "doc_id": "doc-000595",
+      "goal_id": "2b_071",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000958::2b_244",
+      "doc_id": "doc-000958",
+      "goal_id": "2b_244",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000095::2a_240",
+      "doc_id": "doc-000095",
+      "goal_id": "2a_240",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000511::2b_195",
+      "doc_id": "doc-000511",
+      "goal_id": "2b_195",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000108::2a_277",
+      "doc_id": "doc-000108",
+      "goal_id": "2a_277",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "agent_eval_in_with_true_optimized_goals.json::doc-000203::c0.d2.k4",
+      "doc_id": "doc-000203",
+      "goal_id": "c0.d2.k4",
+      "selected_memory_index": 0,
+      "stratum": "agent_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000804::2a_128",
+      "doc_id": "doc-000804",
+      "goal_id": "2a_128",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "agent_eval_in_with_true_optimized_goals.json::doc-000507::c3.d0.k4",
+      "doc_id": "doc-000507",
+      "goal_id": "c3.d0.k4",
+      "selected_memory_index": 0,
+      "stratum": "agent_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000105::1a_110",
+      "doc_id": "doc-000105",
+      "goal_id": "1a_110",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000385::1b_176",
+      "doc_id": "doc-000385",
+      "goal_id": "1b_176",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "agent_eval_in_with_true_optimized_goals.json::doc-000466::c1.d4.k0",
+      "doc_id": "doc-000466",
+      "goal_id": "c1.d4.k0",
+      "selected_memory_index": 0,
+      "stratum": "agent_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000912::2a_175",
+      "doc_id": "doc-000912",
+      "goal_id": "2a_175",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000983::2a_247",
+      "doc_id": "doc-000983",
+      "goal_id": "2a_247",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000126::3_256",
+      "doc_id": "doc-000126",
+      "goal_id": "3_256",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000182::1a_188",
+      "doc_id": "doc-000182",
+      "goal_id": "1a_188",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000140::2b_105",
+      "doc_id": "doc-000140",
+      "goal_id": "2b_105",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000766::1a_028",
+      "doc_id": "doc-000766",
+      "goal_id": "1a_028",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000408::3_076",
+      "doc_id": "doc-000408",
+      "goal_id": "3_076",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000951::1b_225",
+      "doc_id": "doc-000951",
+      "goal_id": "1b_225",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "agent_eval_in_with_true_optimized_goals.json::doc-000703::c2.d4.k0",
+      "doc_id": "doc-000703",
+      "goal_id": "c2.d4.k0",
+      "selected_memory_index": 0,
+      "stratum": "agent_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000384::3_279",
+      "doc_id": "doc-000384",
+      "goal_id": "3_279",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000735::1b_099",
+      "doc_id": "doc-000735",
+      "goal_id": "1b_099",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000313::2b_106",
+      "doc_id": "doc-000313",
+      "goal_id": "2b_106",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "agent_eval_in_with_true_optimized_goals.json::doc-000218::c2.d2.k9",
+      "doc_id": "doc-000218",
+      "goal_id": "c2.d2.k9",
+      "selected_memory_index": 0,
+      "stratum": "agent_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000027::3_068",
+      "doc_id": "doc-000027",
+      "goal_id": "3_068",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000209::1b_106",
+      "doc_id": "doc-000209",
+      "goal_id": "1b_106",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000206::1b_234",
+      "doc_id": "doc-000206",
+      "goal_id": "1b_234",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "agent_eval_in_with_true_optimized_goals.json::doc-000097::c2.d2.k8",
+      "doc_id": "doc-000097",
+      "goal_id": "c2.d2.k8",
+      "selected_memory_index": 0,
+      "stratum": "agent_related"
+    },
+    {
+      "source_sample_key": "agent_eval_in_with_true_optimized_goals.json::doc-000284::c2.d0.k4",
+      "doc_id": "doc-000284",
+      "goal_id": "c2.d0.k4",
+      "selected_memory_index": 0,
+      "stratum": "agent_related"
+    },
+    {
+      "source_sample_key": "agent_eval_in_with_true_optimized_goals.json::doc-000033::c2.d0.k1",
+      "doc_id": "doc-000033",
+      "goal_id": "c2.d0.k1",
+      "selected_memory_index": 0,
+      "stratum": "agent_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000021::1b_174",
+      "doc_id": "doc-000021",
+      "goal_id": "1b_174",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000805::1b_079",
+      "doc_id": "doc-000805",
+      "goal_id": "1b_079",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000747::1b_023",
+      "doc_id": "doc-000747",
+      "goal_id": "1b_023",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000205::1a_231",
+      "doc_id": "doc-000205",
+      "goal_id": "1a_231",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000093::1a_182",
+      "doc_id": "doc-000093",
+      "goal_id": "1a_182",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000258::2b_076",
+      "doc_id": "doc-000258",
+      "goal_id": "2b_076",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "agent_eval_in_with_true_optimized_goals.json::doc-000724::c3.d1.k4",
+      "doc_id": "doc-000724",
+      "goal_id": "c3.d1.k4",
+      "selected_memory_index": 0,
+      "stratum": "agent_related"
+    },
+    {
+      "source_sample_key": "agent_eval_in_with_true_optimized_goals.json::doc-000304::c0.d1.k0",
+      "doc_id": "doc-000304",
+      "goal_id": "c0.d1.k0",
+      "selected_memory_index": 0,
+      "stratum": "agent_related"
+    },
+    {
+      "source_sample_key": "agent_eval_in_with_true_optimized_goals.json::doc-000296::c3.d2.k1",
+      "doc_id": "doc-000296",
+      "goal_id": "c3.d2.k1",
+      "selected_memory_index": 0,
+      "stratum": "agent_related"
+    },
+    {
+      "source_sample_key": "agent_eval_in_with_true_optimized_goals.json::doc-000237::c2.d4.k5",
+      "doc_id": "doc-000237",
+      "goal_id": "c2.d4.k5",
+      "selected_memory_index": 0,
+      "stratum": "agent_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000552::2a_239",
+      "doc_id": "doc-000552",
+      "goal_id": "2a_239",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000549::1a_056",
+      "doc_id": "doc-000549",
+      "goal_id": "1a_056",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "agent_eval_in_with_true_optimized_goals.json::doc-000151::c1.d1.k9",
+      "doc_id": "doc-000151",
+      "goal_id": "c1.d1.k9",
+      "selected_memory_index": 0,
+      "stratum": "agent_related"
+    },
+    {
+      "source_sample_key": "agent_eval_in_with_true_optimized_goals.json::doc-000274::c3.d1.k8",
+      "doc_id": "doc-000274",
+      "goal_id": "c3.d1.k8",
+      "selected_memory_index": 0,
+      "stratum": "agent_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000764::1a_095",
+      "doc_id": "doc-000764",
+      "goal_id": "1a_095",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000254::3_199",
+      "doc_id": "doc-000254",
+      "goal_id": "3_199",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000717::2a_204",
+      "doc_id": "doc-000717",
+      "goal_id": "2a_204",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000317::1b_093",
+      "doc_id": "doc-000317",
+      "goal_id": "1b_093",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000828::1b_076",
+      "doc_id": "doc-000828",
+      "goal_id": "1b_076",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "agent_eval_in_with_true_optimized_goals.json::doc-000171::c0.d0.k3",
+      "doc_id": "doc-000171",
+      "goal_id": "c0.d0.k3",
+      "selected_memory_index": 0,
+      "stratum": "agent_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000929::1b_017",
+      "doc_id": "doc-000929",
+      "goal_id": "1b_017",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000498::1b_005",
+      "doc_id": "doc-000498",
+      "goal_id": "1b_005",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000458::2b_271",
+      "doc_id": "doc-000458",
+      "goal_id": "2b_271",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "agent_eval_in_with_true_optimized_goals.json::doc-000249::c4.d1.k2",
+      "doc_id": "doc-000249",
+      "goal_id": "c4.d1.k2",
+      "selected_memory_index": 0,
+      "stratum": "agent_related"
+    },
+    {
+      "source_sample_key": "agent_eval_in_with_true_optimized_goals.json::doc-000085::c3.d2.k4",
+      "doc_id": "doc-000085",
+      "goal_id": "c3.d2.k4",
+      "selected_memory_index": 0,
+      "stratum": "agent_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000562::1a_151",
+      "doc_id": "doc-000562",
+      "goal_id": "1a_151",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "agent_eval_in_with_true_optimized_goals.json::doc-000055::c3.d4.k1",
+      "doc_id": "doc-000055",
+      "goal_id": "c3.d4.k1",
+      "selected_memory_index": 0,
+      "stratum": "agent_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000146::2b_166",
+      "doc_id": "doc-000146",
+      "goal_id": "2b_166",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "agent_eval_in_with_true_optimized_goals.json::doc-000134::c3.d3.k5",
+      "doc_id": "doc-000134",
+      "goal_id": "c3.d3.k5",
+      "selected_memory_index": 0,
+      "stratum": "agent_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000030::2a_171",
+      "doc_id": "doc-000030",
+      "goal_id": "2a_171",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000984::3_073",
+      "doc_id": "doc-000984",
+      "goal_id": "3_073",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000906::1b_202",
+      "doc_id": "doc-000906",
+      "goal_id": "1b_202",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "agent_eval_in_with_true_optimized_goals.json::doc-000420::c3.d2.k0",
+      "doc_id": "doc-000420",
+      "goal_id": "c3.d2.k0",
+      "selected_memory_index": 0,
+      "stratum": "agent_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000698::3_027",
+      "doc_id": "doc-000698",
+      "goal_id": "3_027",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000003::3_182",
+      "doc_id": "doc-000003",
+      "goal_id": "3_182",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000718::2a_047",
+      "doc_id": "doc-000718",
+      "goal_id": "2a_047",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000235::2b_060",
+      "doc_id": "doc-000235",
+      "goal_id": "2b_060",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    },
+    {
+      "source_sample_key": "behaviour_eval_in_with_true_optimized_goals.json::doc-000745::1a_178",
+      "doc_id": "doc-000745",
+      "goal_id": "1a_178",
+      "selected_memory_index": 0,
+      "stratum": "behaviour_related"
+    }
+  ],
+  "proportional_strata": {
+    "behaviour_related": "datasets/released/behaviour_eval_in_with_true_optimized_goals.json",
+    "agent_related": "datasets/released/agent_eval_in_with_true_optimized_goals.json"
+  },
+  "stratum_sample_counts": {
+    "behaviour_related": 50,
+    "agent_related": 20
+  }
+}
