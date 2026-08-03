@@ -130,11 +130,13 @@ class TransactionRollbackDBExecutor:
         query_runner: Callable[[Any, str, dict], Any],
         result_formatter: Callable[[Any], str] | None = None,
         diff_runner: Callable[[Any], Any] | None = None,
+        context_metadata: dict[str, Any] | None = None,
     ) -> None:
         self.connectable = connectable
         self.query_runner = query_runner
         self.result_formatter = result_formatter or self._default_format
         self.diff_runner = diff_runner
+        self.context_metadata = context_metadata or {}
 
     @staticmethod
     def _default_format(result: Any) -> str:
@@ -200,6 +202,15 @@ class TransactionRollbackDBExecutor:
         except Exception as exc:
             return json.dumps({"diff_error": str(exc)}, ensure_ascii=False)
 
+    def _state_diff_with_metadata(self, before: Any, after: Any) -> str:
+        diff = self._diff(before, after)
+        if not self.context_metadata:
+            return diff
+        try:
+            return json.dumps({"shadow_metadata": self.context_metadata, "state_diff": diff}, ensure_ascii=False, default=str)[:4000]
+        except Exception:
+            return diff
+
     def shadow_execute(self, tool_name: str, tool_arguments: dict) -> ShadowExecutionResult:
         conn, should_close = self._connect()
         tx = None
@@ -213,15 +224,15 @@ class TransactionRollbackDBExecutor:
             return ShadowExecutionResult(
                 result=self._format(result),
                 error=None,
-                state_diff=self._diff(before, after),
-                metadata={"shadow_mode": "transaction_rollback"},
+                state_diff=self._state_diff_with_metadata(before, after),
+                metadata={"shadow_mode": "transaction_rollback", **self.context_metadata},
             )
         except Exception as exc:
             return ShadowExecutionResult(
                 result="",
                 error=f"{type(exc).__name__}: {exc}",
-                state_diff=self._diff(before, after),
-                metadata={"shadow_mode": "transaction_rollback"},
+                state_diff=self._state_diff_with_metadata(before, after),
+                metadata={"shadow_mode": "transaction_rollback", **self.context_metadata},
             )
         finally:
             if tx is not None or hasattr(conn, "rollback"):

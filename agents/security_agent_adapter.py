@@ -6,11 +6,14 @@ import asyncio
 import json
 import os
 import re
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
 import httpx
+import yaml
 from dotenv import load_dotenv
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -324,21 +327,170 @@ async def run_security_agent_task(task: str, mode: str, entry: dict | None, *, a
     return {"response": None, "simguard_decision": None, "risk_score": None, "blocked": None, "axis_detail": {}, "error": f"unsupported mode: {mode}"}
 
 
+
+def _run_external_agentdojo(args: argparse.Namespace, agent_name: str) -> None:
+    suite = (args.suite[-1] if getattr(args, "suite", None) else "all") or "all"
+    if suite == "all":
+        benchmark = "all"
+        suite_args: list[str] = []
+    else:
+        benchmark = suite
+        suite_args = []
+
+    cmd = [
+        sys.executable,
+        str(_REPO_ROOT / "agents" / "agentdojo" / "agentdojo_adapter.py"),
+        "--benchmark", benchmark,
+        "--mode", args.mode,
+        "--label", args.label,
+        "--workers", str(args.workers),
+        "--benchmark-version", args.benchmark_version,
+    ]
+    cmd.extend(suite_args)
+    if args.limit is not None:
+        cmd.extend(["--limit", str(args.limit)])
+    if args.result:
+        cmd.extend(["--results", args.result])
+    if args.logdir:
+        cmd.extend(["--logdir", args.logdir])
+    else:
+        cmd.extend(["--logdir", f"./runs/agentdojo_{suite}_{agent_name}_{args.mode}_{args.label}"])
+    if args.force_rerun:
+        cmd.append("--force-rerun")
+
+    env = os.environ.copy()
+    env["AGENT_PROFILE"] = agent_name
+    env["AGENTDOJO_AGENT_PROFILE"] = agent_name
+    print("[adapter] dispatching AgentDojo:", " ".join(cmd))
+    subprocess.run(cmd, cwd=_REPO_ROOT, env=env, check=True)
+
+
+def _run_external_mcptox(args: argparse.Namespace, agent_name: str) -> None:
+    data = args.data or str(_REPO_ROOT / "attacks-bench" / "MCPTox-Benchmark" / "response_all.json")
+    result = args.result or str(_REPO_ROOT / "results" / f"mcptox__{agent_name}__{args.mode}__{args.label}.json")
+    cmd = [
+        sys.executable,
+        str(_REPO_ROOT / "attacks-bench" / "MCPTox-Benchmark" / "run_mcptox_simguard.py"),
+        "--data", data,
+        "--mode", args.mode,
+        "--model", _model(),
+        "--base-url", _base_url(),
+        "--api-key", _api_key(),
+        "--label", args.label,
+        "--workers", str(args.workers),
+        "--results", result,
+    ]
+    if args.limit is not None:
+        cmd.extend(["--limit", str(args.limit)])
+    env = os.environ.copy()
+    env["AGENT_PROFILE"] = agent_name
+    env["MCPTOX_AGENT_PROFILE"] = agent_name
+    print("[adapter] dispatching MCPTox:", " ".join(cmd))
+    subprocess.run(cmd, cwd=_REPO_ROOT, env=env, check=True)
+
+
+
+def _run_external_bird(args: argparse.Namespace, agent_name: str) -> None:
+    data = args.data or str(_REPO_ROOT / "attacks-bench" / "database" / "bird_mini_dev_simguard_500.jsonl")
+    database_dir = args.database_dir or str(_REPO_ROOT / "attacks-bench" / "database" / "minidev" / "MINIDEV" / "dev_databases")
+    result = args.result or str(_REPO_ROOT / "results" / f"bird_mini_dev__{agent_name}__{args.mode}__{args.label}_real_agent.json")
+    cmd = [
+        sys.executable,
+        str(_REPO_ROOT / "attacks-bench" / "database" / "run_bird_attack_benchmark.py"),
+        "--data", data,
+        "--database-dir", database_dir,
+        "--mode", args.mode,
+        "--label", args.label,
+        "--workers", str(args.workers),
+        "--agent-profile", agent_name,
+        "--agent-model", _model(),
+        "--base-url", _base_url(),
+        "--api-key", _api_key(),
+        "--results", result,
+    ]
+    if args.limit is not None:
+        cmd.extend(["--limit", str(args.limit)])
+    env = os.environ.copy()
+    env["AGENT_PROFILE"] = agent_name
+    env["BIRD_AGENT_PROFILE"] = agent_name
+    print("[adapter] dispatching BIRD:", " ".join(cmd))
+    subprocess.run(cmd, cwd=_REPO_ROOT, env=env, check=True)
+
+
+def _run_external_sleeper(args: argparse.Namespace, agent_name: str) -> None:
+    memory_root = _REPO_ROOT / "attacks-bench" / "memory" / "LLM-agent-memory-poisoning"
+    config_name = f"agentdojo_{args.mode}_{args.label}.yaml"
+    config_path = Path(args.config) if args.config else memory_root / "scripts" / "configs" / "local" / config_name
+    if not config_path.exists():
+        raise SystemExit(f"Sleeper config not found: {config_path}")
+
+    config = yaml.safe_load(config_path.read_text())
+    run_name = f"{agent_name}-{args.mode}_{args.label}"
+    config["name"] = run_name
+    config["output_dir"] = f".artifacts/{agent_name}/{args.mode}_{args.label}"
+    config.setdefault("eval", {})["max_connections"] = args.workers
+    if args.limit is not None:
+        config["eval"]["max_tasks"] = args.limit
+
+    tmp = Path(tempfile.gettempdir()) / f"sleeper_{agent_name}_{args.mode}_{args.label}.yaml"
+    tmp.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+
+    py = memory_root / ".venv" / "bin" / "python"
+    if not py.exists():
+        py = Path(sys.executable)
+    cmd = [str(py), "scripts/run_eval_campaign.py", str(tmp), "--yes"]
+    env = os.environ.copy()
+    env.setdefault("OPENAI_BASE_URL", _base_url())
+    env.setdefault("OPENAI_API_KEY", _api_key())
+    env.setdefault("VLLM_BASE_URL", _base_url())
+    env.setdefault("VLLM_API_KEY", _api_key())
+    env.setdefault("MINJA_MODEL", _model())
+    env["SLEEPER_AGENT_PROFILE"] = agent_name
+    print("[adapter] dispatching Sleeper:", " ".join(cmd))
+    print(f"[adapter] Sleeper output_dir: {config['output_dir']}")
+    subprocess.run(cmd, cwd=memory_root, env=env, check=True)
+
 def run_adapter_cli(agent_name: str, description: str) -> None:
     from run_benchmark import BENCHMARKS, analyze, evaluate, run
 
+    benchmark_choices = list(BENCHMARKS) + ["agentdojo", "mcptox", "sleeper", "bird"]
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument("--benchmark", default="GA_Jailbreak", choices=list(BENCHMARKS))
-    parser.add_argument("--mode", default="simguard", choices=["simguard", "baseline", "llamaguard", "shieldgemma", "granite"])
+    parser.add_argument("--benchmark", default="GA_Jailbreak", choices=benchmark_choices)
+    parser.add_argument("--mode", default="simguard", choices=[
+        "simguard", "baseline", "llamaguard", "shieldgemma", "granite",
+        "structured_prompting", "rule_metadata_filter", "llm_metadata_guard", "capability_policy",
+    ])
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--workers", type=int, default=1)
     parser.add_argument("--label", default="attack", choices=["attack", "benign", "all"])
     parser.add_argument("--mix", default="poisoned", choices=["mixed", "poisoned"])
-    parser.add_argument("--result", default=None)
+    parser.add_argument("--result", "--results", dest="result", default=None)
+    parser.add_argument("--suite", action="append", default=[])
+    parser.add_argument("--data", default=None)
+    parser.add_argument("--database-dir", default=None)
+    parser.add_argument("--config", default=None)
+    parser.add_argument("--logdir", default=None)
+    parser.add_argument("--benchmark-version", default="v1.2.2")
+    parser.add_argument("-f", "--force-rerun", action="store_true")
     parser.add_argument("--evaluate", action="store_true")
     parser.add_argument("--analyze", action="store_true")
     args = parser.parse_args()
 
+    if args.benchmark == "agentdojo":
+        _run_external_agentdojo(args, agent_name)
+        return
+    if args.benchmark == "mcptox":
+        _run_external_mcptox(args, agent_name)
+        return
+    if args.benchmark == "bird":
+        _run_external_bird(args, agent_name)
+        return
+    if args.benchmark == "sleeper":
+        _run_external_sleeper(args, agent_name)
+        return
+
+    if args.mode not in {"simguard", "baseline", "llamaguard", "shieldgemma", "granite"}:
+        raise SystemExit(f"mode {args.mode!r} is not supported for {args.benchmark}")
     if args.analyze:
         analyze(agent=agent_name, benchmark=args.benchmark, mode=args.mode)
     elif args.evaluate:

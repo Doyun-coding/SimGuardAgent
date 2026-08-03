@@ -98,8 +98,10 @@ class ToolCallSimulator:
         agent_response = await self._shadow_agent_step(
             action.user_request, tool_name, simulated_response
         )
-        # 거절 메시지면 ALLOW — 모델이 자체적으로 거부하므로 SimGuard 개입 불필요
-        if _is_refusal(agent_response):
+        # 거절 메시지면 일반 도구에서는 ALLOW할 수 있다.
+        # 단, database/API write 류는 이미 shadow 실행된 action의 commit 여부가 핵심이라
+        # agent_response가 거절처럼 보여도 Judge가 SQL/result/state diff를 반드시 평가해야 한다.
+        if tool_category != "database" and _is_refusal(agent_response):
             return SimulationTrace(
                 action=action,
                 backend_used=SimulationBackend.MOCK_TOOL,

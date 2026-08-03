@@ -1,0 +1,26 @@
+{
+  "agent": "agentdojo",
+  "benchmark": "all",
+  "suites": [
+    "workspace",
+    "travel",
+    "banking",
+    "slack"
+  ],
+  "mode": "simguard",
+  "label": "benign",
+  "defense": "simguard",
+  "attack": null,
+  "benchmark_version": "v1.2.2",
+  "limit": null,
+  "workers": 24,
+  "model": "openai-compatible",
+  "model_id": "qwen/qwen3.5-9b",
+  "openai_base_url": "http://localhost:10000/v1",
+  "logdir": "runs/agentdojo_all_autogen_simguard_benign",
+  "num_cases": 97,
+  "utility_success": 73,
+  "utility_rate": 0.7525773195876289,
+  "injection_success": 97,
+  "asr": 1.0
+}

@@ -1,0 +1,23 @@
+{
+  "agent": "agentdojo",
+  "benchmark": "workspace",
+  "suites": [
+    "workspace"
+  ],
+  "mode": "simguard",
+  "label": "attack",
+  "defense": "simguard",
+  "attack": "tool_knowledge",
+  "benchmark_version": "v1.2.2",
+  "limit": null,
+  "workers": 24,
+  "model": "openai-compatible",
+  "model_id": "qwen/qwen3.5-9b",
+  "openai_base_url": "http://localhost:10000/v1",
+  "logdir": "runs/agentdojo_workspace__agentdojo__simguard__qwen35_9b__attack_trace",
+  "num_cases": 560,
+  "utility_success": 403,
+  "utility_rate": 0.7196428571428571,
+  "injection_success": 3,
+  "asr": 0.005357142857142857
+}

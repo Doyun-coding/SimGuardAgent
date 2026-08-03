@@ -13,7 +13,7 @@
   "attack": null,
   "benchmark_version": "v1.2.2",
   "limit": null,
-  "workers": 1,
+  "workers": 24,
   "model": "openai-compatible",
   "model_id": "qwen/qwen3.5-9b",
   "openai_base_url": "http://localhost:10000/v1",
