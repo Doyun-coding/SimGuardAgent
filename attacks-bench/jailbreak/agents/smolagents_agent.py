@@ -108,10 +108,10 @@ async def _call_target_model(task: str) -> str:
 
 
 async def _run_simguard(task: str) -> dict:
-    from simguard import SimGuardInterceptor
+    from simguard import SimGuardAgentInterceptor
 
     response = await _call_target_model(task)
-    trace = await SimGuardInterceptor().intercept_final_answer(task, response)
+    trace = await SimGuardAgentInterceptor().intercept_final_answer(task, response)
     decision = getattr(trace.decision, "value", str(trace.decision))
     risk_score = trace.risk_score
 

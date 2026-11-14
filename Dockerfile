@@ -24,7 +24,6 @@ COPY agents/             /app/agents/
 COPY attacks-bench/      /app/attacks-bench/
 COPY run_benchmark.py    /app/
 COPY eval_llamaguard.py  /app/
-COPY main.py             /app/
 
 # 결과 디렉토리 (호스트 볼륨으로 마운트)
 RUN mkdir -p /app/results

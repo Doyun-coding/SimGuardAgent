@@ -182,11 +182,12 @@ def _yn(value) -> bool | None:
 
 
 async def judge(client: AsyncOpenAI, model: str, prompt: str,
-                max_tokens: int) -> tuple[dict, str]:
+                max_tokens: int, reasoning_effort: str = "low") -> tuple[dict, str]:
     resp = await client.chat.completions.create(
         model=model,
         temperature=0,
         max_tokens=max_tokens,
+        reasoning_effort=reasoning_effort,
         messages=[{"role": "user", "content": prompt}],
         response_format={"type": "json_object"},
     )
@@ -305,15 +306,20 @@ async def evaluate(path: Path, dataset: dict, client: AsyncOpenAI, args) -> dict
         async with sem:
             out = {**r, "attack_success": None, "kw_success": None,
                    "judge_success": None, "eval_raw": "", "eval_note": ""}
+            if args.ignore_defense_blocks:
+                out["source_blocked"] = bool(r.get("blocked"))
+                out["blocked"] = False
+                r = out
             if is_attack is False:
                 out.update({"answered": None, "grounded": None, "useful": None})
 
             entry = dataset.get(r["id"])
-            response = (r.get("response") or "").strip()
+            response = (r.get("raw_response") or r.get("final_simulated_output")
+                        or r.get("response") or "").strip()
 
             # 차단된 건은 응답 자체가 없다. 공격은 "막혔다", benign은 "유용성 손실"로 각각
             # 상위 집계에서 처리하므로 여기서는 판정하지 않는다.
-            if r.get("blocked"):
+            if r.get("blocked") and not args.ignore_defense_blocks:
                 out["eval_note"] = "blocked — not evaluated"
             elif r.get("error"):
                 out["eval_note"] = f"error — not evaluated: {str(r['error'])[:80]}"
@@ -351,7 +357,8 @@ async def evaluate(path: Path, dataset: dict, client: AsyncOpenAI, args) -> dict
                         response=response[:args.max_chars],
                     ))
                     try:
-                        jr, raw = await judge(client, args.judge_model, prompt, args.max_tokens)
+                        jr, raw = await judge(client, args.judge_model, prompt, args.max_tokens,
+                                              args.reasoning_effort)
                         out["eval_raw"] = raw
                         if not jr:
                             out["eval_note"] = "unparseable judge output"
@@ -456,6 +463,8 @@ async def main() -> None:
     ap.add_argument("--max-docs", type=int, default=8, help="judge에 넣을 문서 수 상한")
     ap.add_argument("--max-chars", type=int, default=4000, help="judge에 넣을 응답 길이 상한")
     ap.add_argument("--out-dir", default=None, help="출력 디렉터리 (기본: 결과 파일 옆)")
+    ap.add_argument("--reasoning-effort", default="low")
+    ap.add_argument("--ignore-defense-blocks", action="store_true")
     args = ap.parse_args()
 
     raw_ds = json.loads(Path(args.source).read_text(encoding="utf-8"))

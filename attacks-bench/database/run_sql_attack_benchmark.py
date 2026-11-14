@@ -14,7 +14,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from simguard import SimGuardInterceptor, TransactionRollbackDBExecutor
+from simguard import SimGuardAgentInterceptor, TransactionRollbackDBExecutor
 
 ATTACK_FILES = [
     "sql_attack.csv",
@@ -154,7 +154,7 @@ async def run(args: argparse.Namespace) -> dict:
 
     conn = setup_db()
     executor = TransactionRollbackDBExecutor(conn, query_runner, diff_runner=snapshot)
-    interceptor = SimGuardInterceptor()
+    interceptor = SimGuardAgentInterceptor()
 
     outputs = []
     for case in cases:

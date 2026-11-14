@@ -24,6 +24,7 @@ import argparse
 import asyncio
 import csv
 import json
+import os
 import re
 from pathlib import Path
 
@@ -89,7 +90,8 @@ def _parse_label(text: str) -> bool | None:
 
 
 async def classify(client: AsyncOpenAI, model: str, behavior: str, generation: str,
-                   max_tokens: int = 4096, constrain: bool = True) -> tuple[bool | None, str]:
+                   max_tokens: int = 4096, constrain: bool = True,
+                   reasoning_effort: str = "low") -> tuple[bool | None, str]:
     """behavior의 인스턴스인지 yes/no로 판정한다.
 
     constrain=True면 vLLM structured outputs로 출력을 yes/no로 강제한다.
@@ -103,6 +105,7 @@ async def classify(client: AsyncOpenAI, model: str, behavior: str, generation: s
         model=model,
         temperature=0,
         max_tokens=max_tokens,
+        reasoning_effort=reasoning_effort,
         messages=[{"role": "user", "content": HARMBENCH_PROMPT.format(
             behavior=behavior,
             generation=generation,
@@ -152,6 +155,8 @@ async def main() -> None:
     ap.add_argument("--no-constrain", action="store_true",
                     help="structured outputs 강제를 끈다 (미지원 백엔드용)")
     ap.add_argument("--out", default=None, help="출력 경로 (기본: <result>.harmbench.json)")
+    ap.add_argument("--reasoning-effort", default="low")
+    ap.add_argument("--ignore-defense-blocks", action="store_true")
     args = ap.parse_args()
 
     path = Path(args.result)
@@ -170,7 +175,7 @@ async def main() -> None:
         behaviors = {str(e["id"]): e["task"] for e in entries}
 
     client = AsyncOpenAI(
-        api_key="dummy",
+        api_key=os.getenv("OPENAI_API_KEY", "dummy"),
         base_url=args.classifier_url,
         http_client=httpx.AsyncClient(verify=False, timeout=120),
     )
@@ -182,8 +187,10 @@ async def main() -> None:
 
     async def process(r: dict) -> dict:
         async with sem:
+            if args.ignore_defense_blocks:
+                r = {**r, "source_blocked": bool(r.get("blocked")), "blocked": False}
             # SimGuard가 차단한 건은 응답 자체가 없으므로 평가 대상에서 제외한다
-            if r.get("blocked") is True:
+            if r.get("blocked") is True and not args.ignore_defense_blocks:
                 out = {**r, "harmbench_success": None, "harmbench_raw": "",
                        "harmbench_note": "blocked by SimGuard — not evaluated"}
             elif r.get("error"):
@@ -191,7 +198,8 @@ async def main() -> None:
                        "harmbench_note": f"error — not evaluated: {str(r['error'])[:80]}"}
             else:
                 behavior = behaviors.get(str(r["id"]), "")
-                generation = r.get("response") or ""
+                generation = (r.get("raw_response") or r.get("final_simulated_output")
+                              or r.get("response") or "")
                 if not behavior:
                     out = {**r, "harmbench_success": None, "harmbench_raw": "",
                            "harmbench_note": "behavior not found in dataset"}
@@ -204,7 +212,8 @@ async def main() -> None:
                     try:
                         label, raw = await classify(client, args.classifier_model, behavior,
                                                     generation, args.max_tokens,
-                                                    constrain=not args.no_constrain)
+                                                    constrain=not args.no_constrain,
+                                                    reasoning_effort=args.reasoning_effort)
                         out = {**r, "harmbench_success": label, "harmbench_raw": raw,
                                "harmbench_note": "" if label is not None else "unparseable classifier output"}
                     except Exception as e:

@@ -19,7 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from simguard import SimGuardInterceptor, TransactionRollbackDBExecutor
+from simguard import Action, ActionType, DatabaseShadowExecutor, Decision, SimGuardAgentInterceptor
 
 
 def load_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -69,8 +69,9 @@ def sqlite_path(db_root: Path, db_id: str) -> Path | None:
     return matches[0] if matches else None
 
 
-def setup_fallback_db() -> sqlite3.Connection:
-    conn = sqlite3.connect(":memory:", check_same_thread=False)
+def setup_fallback_db(path: Path) -> sqlite3.Connection:
+    # shadow 실행기가 따로 연결해야 하므로 메모리 DB가 아니라 임시 파일에 만든다.
+    conn = sqlite3.connect(str(path), check_same_thread=False)
     conn.execute(
         """
         CREATE TABLE main_table (
@@ -106,7 +107,8 @@ def connect_db(case: dict[str, Any], db_root: Path | None) -> tuple[sqlite3.Conn
             ).name)
             shutil.copy2(p, tmp)
             return sqlite3.connect(str(tmp), check_same_thread=False), f"temp_copy_of:{p}", tmp
-    return setup_fallback_db(), "fallback_memory_db", None
+    tmp = Path(tempfile.NamedTemporaryFile(prefix="bird_fallback_", suffix=".db", delete=False).name)
+    return setup_fallback_db(tmp), "fallback_temp_db", tmp
 
 
 def query_runner(conn: sqlite3.Connection, tool_name: str, args: dict) -> Any:
@@ -567,21 +569,29 @@ def run_one(case: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
         if args.mode == "llm_sql_guard":
             return run_llm_sql_guard(conn, case, query, db_source)
 
-        executor = TransactionRollbackDBExecutor(
-            conn,
-            query_runner,
-            diff_runner=snapshot,
-            context_metadata={"poison_metadata": poison_metadata} if poison_metadata else None,
+        # 에이전트의 execute_sql 호출을 SimGuardAgent Interceptor가 실행 전에 가로챈다. ToolCallSimulator는
+        # DatabaseShadowExecutor로 같은 DB(임시 복사본)의 트랜잭션 안에서 실행해 보고 되돌린 뒤 판정한다.
+        # ALLOW일 때만 실제로 실행하고 확정한다.
+        action = Action(
+            user_request=case.get("user_prompt", ""),
+            tool_name="execute_sql",
+            tool_arguments={"query": query},
+            tool_category="database",
+            tool_description="Execute one SQLite SQL statement on the database and return the result rows.",
+            available_tools=["execute_sql(query)"],
+            action_type=ActionType.TOOL_CALL,
+            shadow_executor=DatabaseShadowExecutor(str(tmp_db), snapshot=snapshot),
         )
-        guarded = asyncio.run(
-            SimGuardInterceptor().guard_shadow_tool_call(
-                user_request=case.get("user_prompt", ""),
-                tool_name="execute_sql",
-                tool_arguments={"query": query},
-                shadow_executor=executor,
-                tool_category="database",
-            )
-        )
+        trace = asyncio.run(SimGuardAgentInterceptor().intercept(action))
+        shadow = trace.shadow
+        result, error, committed = None, None, False
+        if trace.decision == Decision.ALLOW:
+            try:
+                result = query_runner(conn, "execute_sql", {"query": query})
+                conn.commit()
+                committed = True
+            except Exception as exc:
+                error = f"{type(exc).__name__}: {exc}"
         return {
             **case,
             "agent_profile": args.agent_profile or None,
@@ -589,14 +599,15 @@ def run_one(case: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
             "poison_metadata": poison_metadata,
             "query": query,
             "db_source": db_source,
-            "decision": getattr(guarded.trace.decision, "value", str(guarded.trace.decision)),
-            "risk_score": guarded.trace.risk_score,
-            "committed": guarded.committed,
-            "result": guarded.result,
-            "error": guarded.error,
-            "shadow_error": guarded.shadow.error,
-            "state_diff": guarded.shadow.state_diff,
-            "events": [e.model_dump() for e in guarded.trace.security_events],
+            "decision": trace.decision.value,
+            "risk_score": trace.risk_score,
+            "committed": committed,
+            "result": result,
+            "error": error,
+            "shadow_result": getattr(shadow, "result", None),
+            "shadow_error": getattr(shadow, "error", None),
+            "state_diff": getattr(shadow, "state_diff", None),
+            "events": [e.model_dump() for e in trace.security_events],
         }
     finally:
         conn.close()

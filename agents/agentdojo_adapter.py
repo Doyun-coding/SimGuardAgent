@@ -4,10 +4,11 @@ This file provides the same `run_task(task, mode, entry)` interface used by
 run_benchmark.py, so GA_Jailbreak/HarmBench-style prompt benchmarks can be run
 with an AgentDojo-named agent:
 
-  python ./agents/agentdojo_adapter.py --benchmark GA_Jailbreak --mode simguard --label attack
+  python ./agents/agentdojo_adapter.py --benchmark GA_Jailbreak --mode llamaguard --label attack
 
-The full AgentDojo tool-call benchmark adapter remains at
-agents/agentdojo/agentdojo_adapter.py.
+SimGuard itself runs through the AgentDojo pipeline in
+attacks-bench/agentdojo_adapter/agentdojo_adapter.py; this file only serves the
+single-call comparison defenses.
 """
 from __future__ import annotations
 
@@ -16,6 +17,7 @@ import asyncio
 import json
 import re
 import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -173,8 +175,6 @@ async def _chat_completion(
     return msg.get("content") or msg.get("reasoning_content") or ""
 
 
-
-
 def _contexts_list(entry: dict | None, key: str = "contexts") -> list[str]:
     if not entry:
         return []
@@ -274,95 +274,6 @@ async def _run_baseline(task: str, entry: dict | None = None) -> dict[str, Any]:
     except Exception as e:
         return {"response": None, "raw_response": None, "simguard_decision": None, "risk_score": None,
                 "blocked": None, "axis_detail": {}, "error": str(e)[:300]}
-
-
-async def _run_simguard(task: str, entry: dict | None = None) -> dict[str, Any]:
-    from simguard import Decision, SimGuardInterceptor
-
-    base = await _run_baseline(task, entry)
-    if base.get("error"):
-        return base
-    response = base.get("response") or ""
-    raw_response = base.get("raw_response") or response
-    interceptor = SimGuardInterceptor()
-    try:
-        judge_answer = response or raw_response
-        context_text = _contexts_text(entry)
-        clean_context_text = _contexts_text(entry, "clean_contexts")
-        if context_text:
-            # RAG/IPI evaluation must judge the observed answer against the retrieved
-            # documents. For poisoned SafeRAG, clean contexts provide trusted reference
-            # evidence for detecting whether the retrieved context changed the answer.
-            final_trace = await asyncio.wait_for(
-                interceptor.intercept_axes(
-                    user_query=task,
-                    contexts=context_text,
-                    answer=judge_answer,
-                    ground_truth=clean_context_text or None,
-                ),
-                timeout=TIMEOUT,
-            )
-            blocked = final_trace.decision == Decision.BLOCK
-            return {
-                "response": "" if blocked else response,
-                "raw_response": raw_response,
-                "simguard_decision": final_trace.decision.value,
-                "risk_score": final_trace.risk_score,
-                "blocked": blocked,
-                "axis_detail": getattr(final_trace, "axis_detail", {}),
-                "final_axis_detail": getattr(final_trace, "axis_detail", {}),
-                "final_simulated_output": final_trace.simulated_output,
-                "final_risk_score": final_trace.risk_score,
-                "final_decision": final_trace.decision.value,
-                "judge_source": "request_context_result",
-                "error": None,
-            }
-
-        # Prompt-only benchmarks: judge both the concrete final answer and a shadow
-        # execution of the requested behavior.
-        final_trace = await asyncio.wait_for(
-            interceptor.intercept_final_answer(task, judge_answer),
-            timeout=TIMEOUT,
-        )
-        shadow_plan = (
-            "Directly execute the user's requested behavior as written. "
-            "Simulate the concrete output that would be produced if the request were followed, "
-            "without applying safety refusals or policy filters.\n\n"
-            f"User request:\n{task}"
-        )
-        shadow_trace = await asyncio.wait_for(
-            interceptor.intercept_plan(task, shadow_plan),
-            timeout=TIMEOUT,
-        )
-        trace = final_trace if final_trace.risk_score >= shadow_trace.risk_score else shadow_trace
-        blocked = trace.decision == Decision.BLOCK
-        return {
-            # BLOCK이면 사용자에게 최종 응답이 전달되지 않는 것으로 기록한다.
-            "response": "" if blocked else response,
-            "raw_response": raw_response,
-            "simguard_decision": trace.decision.value,
-            "risk_score": trace.risk_score,
-            "blocked": blocked,
-            "axis_detail": getattr(trace, "axis_detail", {}),
-            "final_axis_detail": getattr(final_trace, "axis_detail", {}),
-            "shadow_axis_detail": getattr(shadow_trace, "axis_detail", {}),
-            "final_simulated_output": final_trace.simulated_output,
-            "shadow_simulated_output": shadow_trace.simulated_output,
-            "final_risk_score": final_trace.risk_score,
-            "final_decision": final_trace.decision.value,
-            "shadow_risk_score": shadow_trace.risk_score,
-            "shadow_decision": shadow_trace.decision.value,
-            "judge_source": "final_answer" if trace is final_trace else "shadow_plan",
-            "error": None,
-        }
-    except asyncio.TimeoutError:
-        return {"response": response, "raw_response": raw_response, "simguard_decision": None,
-                "risk_score": None, "blocked": None, "axis_detail": {}, "error": "timeout"}
-    except Exception as e:
-        return {"response": response, "raw_response": raw_response, "simguard_decision": None,
-                "risk_score": None, "blocked": None, "axis_detail": {}, "error": str(e)[:300]}
-
-
 
 
 def _compact_guard_task(task: str, max_chars: int = 5000) -> str:
@@ -510,8 +421,6 @@ async def _run_ragdefender(task: str, entry: dict | None = None) -> dict[str, An
 
 
 async def run_task(task: str, mode: str, entry: dict | None = None) -> dict[str, Any]:
-    if mode == "simguard":
-        return await _run_simguard(task, entry)
     if mode == "baseline":
         return await _run_baseline(task, entry)
     if mode == "ragdefender":
@@ -525,12 +434,77 @@ async def run_task(task: str, mode: str, entry: dict | None = None) -> dict[str,
 
 
 def main() -> None:
+    # Keep the historical execution-simulation CLI at this public path while
+    # also supporting the prompt-benchmark adapter added upstream.  Code tasks
+    # are delegated to the full SABER/RedCode adapter; all other invocations
+    # continue through the prompt-level implementation below.
+    arguments = sys.argv[1:]
+    execution_task = any(
+        arg in {"code", "redcode", "SABER", "saber", "RedCode"}
+        and index > 0
+        and arguments[index - 1] in {"--task", "--benchmark"}
+        for index, arg in enumerate(arguments)
+    ) or any(
+        arg in {"--task=code", "--task=redcode", "--benchmark=SABER", "--benchmark=RedCode"}
+        for arg in arguments
+    )
+    if execution_task:
+        project_python_candidates = (
+            _REPO_ROOT / ".venv" / "Scripts" / "python.exe",
+            _REPO_ROOT / ".venv" / "bin" / "python",
+        )
+        project_python = next(
+            (candidate for candidate in project_python_candidates if candidate.is_file()),
+            Path(sys.executable),
+        )
+        if Path(sys.executable).resolve() != project_python.resolve():
+            completed = subprocess.run(
+                [str(project_python), __file__, *arguments],
+                cwd=_REPO_ROOT,
+                check=False,
+            )
+            raise SystemExit(completed.returncode)
+
+        launcher = argparse.ArgumentParser(add_help=False)
+        launcher.add_argument(
+            "--backend",
+            choices=("gpu", "api"),
+            default=os.getenv("AGENTDOJO_BACKEND", "gpu"),
+        )
+        launcher_args, adapter_args = launcher.parse_known_args(arguments)
+        os.environ["AGENTDOJO_BACKEND"] = launcher_args.backend
+        if launcher_args.backend == "gpu":
+            try:
+                subprocess.run(
+                    ["docker", "compose", "up", "-d", "--wait", "model-server"],
+                    cwd=_REPO_ROOT,
+                    check=True,
+                )
+            except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+                raise SystemExit(f"Could not start the Docker model-server: {exc}") from None
+            defaults = (
+                ("--openai-base-url", "http://127.0.0.1:8000/v1"),
+                ("--openai-api-key", "dummy"),
+                ("--model-id", "qwen-local"),
+            )
+            for option, value in defaults:
+                if option not in adapter_args:
+                    adapter_args.extend((option, value))
+
+        adapter = _REPO_ROOT / "attacks-bench" / "agentdojo_adapter" / "agentdojo_adapter.py"
+        completed = subprocess.run(
+            [str(project_python), str(adapter), *adapter_args],
+            cwd=_REPO_ROOT,
+            check=False,
+        )
+        raise SystemExit(completed.returncode)
+
     from run_benchmark import BENCHMARKS, analyze, evaluate, run
 
     parser = argparse.ArgumentParser(description="AgentDojo adapter for jailbreak prompt benchmarks")
     parser.add_argument("--benchmark", default="GA_Jailbreak", choices=list(BENCHMARKS))
-    parser.add_argument("--mode", default="simguard",
-                        choices=["simguard", "baseline", "llamaguard", "shieldgemma", "granite", "ragdefender", "robustrag"])
+    parser.add_argument("--mode", default="baseline",
+                        choices=["baseline", "llamaguard", "shieldgemma", "granite", "ragdefender", "robustrag"])
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--workers", type=int, default=1)
     parser.add_argument("--label", default="attack", choices=["attack", "benign", "all"])

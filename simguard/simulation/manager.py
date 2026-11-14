@@ -4,38 +4,33 @@ Simulation Manager
 액션을 분류하고 적절한 시뮬레이션 백엔드로 라우팅한다.
 
 분류 기준:
+  FINAL_RESPONSE                      -> BehaviorJudge  (시뮬레이션할 Plan이 없다)
   CONVERSATIONAL                      -> BehaviorSimulator
-  CODE_EXECUTION / SHELL              -> CodeSimulator  (Docker → subprocess fallback)
+  CODE_EXECUTION / SHELL              -> ExecutionSimulator  (Docker)
   TOOL_CALL                           -> ToolCallSimulator
 
-자동 분류 (action_type 미지정 시):
-  action.code 있음                    -> CODE_EXECUTION
-  action.tool_name 있음               -> TOOL_CALL
-  action.language in (bash/sh/shell)  -> SHELL
-  그 외                               -> CONVERSATIONAL
+분류는 Action에 채워진 필드만 본다:
+  1. action_type 있음                 -> 그대로 사용
+  2. language가 셸                    -> SHELL
+  3. code 있음                        -> CODE_EXECUTION
+  4. tool_name 있음                   -> TOOL_CALL (RAG 검색, 메모리 읽기·쓰기 포함)
+  5. 그 외                            -> CONVERSATIONAL
 """
 from __future__ import annotations
 
-from simguard.models import Action, ActionType, SimulationTrace
+from simguard.models import Action, ActionType, SimulationBackend, SimulationTrace
 from simguard.simulation.backends.behavior_simulator import BehaviorSimulator
 from simguard.simulation.backends.tool_call_simulator import ToolCallSimulator
+from simguard.simulation.judges.behavior_judge import BehaviorJudge
 
 _SHELL_LANGS = {"bash", "sh", "shell", "cmd", "powershell", "zsh"}
-
-# 읽기 연산(RAG·Memory)은 호출 자체가 피해가 아니라, 가져온 내용과 그것을 본 뒤의
-# 행동이 위험하다. 따라서 응답을 상상하는 ToolCallSimulator가 아니라, 실제 조회된
-# 내용을 근거로 에이전트 행동을 시뮬레이션하는 BehaviorSimulator로 보낸다.
-_READ_CATEGORIES = {"rag", "memory"}
-_READ_TOOL_HINTS = (
-    "rag", "retrieve", "search", "vector", "lookup", "query_docs",
-    "memory", "remember", "recall", "store",
-)
 
 
 class SimulationManager:
     def __init__(self):
         self._llm = BehaviorSimulator()
         self._tool = ToolCallSimulator()
+        self._behavior_judge = BehaviorJudge()
         # Code/Shell execution is expensive and may require Docker. Load it only
         # when a code or shell action is actually evaluated. VESSL prompt-level
         # behavior experiments do not need this backend.
@@ -49,28 +44,39 @@ class SimulationManager:
         if action.code:
             return ActionType.CODE_EXECUTION
         if action.tool_name:
-            if self._is_read_tool(action):
-                return ActionType.CONVERSATIONAL
+            # RAG 검색, 메모리 읽기·쓰기도 다른 도구 호출과 같다. 가져온 문서와 메모리는 타겟 모델의
+            # 다음 입력으로 들어가고, 그 입력으로 낸 출력을 다시 판정한다.
             return ActionType.TOOL_CALL
         return ActionType.CONVERSATIONAL
 
-    @staticmethod
-    def _is_read_tool(action: Action) -> bool:
-        """RAG·Memory 같은 읽기 연산인가."""
-        if action.tool_category and action.tool_category.lower() in _READ_CATEGORIES:
-            return True
-        name = (action.tool_name or "").lower()
-        return any(h in name for h in _READ_TOOL_HINTS)
+    def _execution_simulator(self):
+        if self._microvm is None:
+            from simguard.simulation.backends.execution_simulator import ExecutionSimulator
+
+            self._microvm = ExecutionSimulator()
+        return self._microvm
 
     async def simulate(self, action: Action) -> SimulationTrace:
         action_type = self._classify(action)
 
-        if action_type in (ActionType.CODE_EXECUTION, ActionType.SHELL):
-            if self._microvm is None:
-                from simguard.simulation.backends.code_simulator import CodeSimulator
+        if action_type == ActionType.FINAL_RESPONSE:
+            events, risk_score, axis_detail = await self._behavior_judge.judge(
+                user_query=action.user_request,
+                contexts=action.retrieved_context or "",
+                answer=action.final_response,
+                conversation=action.conversation,
+            )
+            return SimulationTrace(
+                action=action,
+                backend_used=SimulationBackend.LLM_ONLY,
+                simulated_output=action.final_response,
+                security_events=events,
+                risk_score=risk_score,
+                axis_detail=axis_detail,
+            )
 
-                self._microvm = CodeSimulator()
-            return await self._microvm.simulate(action)
+        if action_type in (ActionType.CODE_EXECUTION, ActionType.SHELL):
+            return await self._execution_simulator().simulate(action, session=action.execution_session)
 
         if action_type == ActionType.TOOL_CALL:
             return await self._tool.simulate(action)

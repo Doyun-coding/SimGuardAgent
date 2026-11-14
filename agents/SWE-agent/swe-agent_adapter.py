@@ -10,6 +10,7 @@ OpenAI-compatible endpoint, with code/shell blocks exposed to SimGuard.
 """
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -38,6 +39,32 @@ async def run_task(task: str, mode: str, entry: dict | None = None) -> dict:
 
 
 def main() -> None:
+    arguments = sys.argv[1:]
+    execution_task = any(
+        arg in {"code", "redcode", "SABER", "saber", "RedCode", "redcode-exec"}
+        and index > 0
+        and arguments[index - 1] in {"--task", "--benchmark"}
+        for index, arg in enumerate(arguments)
+    ) or any(
+        arg in {
+            "--task=code", "--task=redcode", "--benchmark=SABER",
+            "--benchmark=saber", "--benchmark=RedCode", "--benchmark=redcode",
+        }
+        for arg in arguments
+    )
+    if execution_task:
+        adapter = (
+            _REPO_ROOT
+            / "attacks-bench"
+            / "agentdojo_adapter"
+            / "agentdojo_adapter.py"
+        )
+        completed = subprocess.run(
+            [sys.executable, str(adapter), "--agent-profile", "swe-agent", *arguments],
+            cwd=_REPO_ROOT,
+            check=False,
+        )
+        raise SystemExit(completed.returncode)
     run_adapter_cli("swe-agent", "SWE-agent-style SimGuard benchmark adapter")
 
 

@@ -1,5 +1,5 @@
-from simguard.simulation.judges.axis_judge import AxisJudge
+from simguard.simulation.judges.behavior_judge import BehaviorJudge
 from simguard.simulation.judges.tool_call_judge import ToolCallJudge
-from simguard.simulation.judges.code_judge import CodeJudge
+from simguard.simulation.judges.execution_judge import ExecutionJudge
 
-__all__ = ["AxisJudge", "ToolCallJudge", "CodeJudge"]
+__all__ = ["BehaviorJudge", "ToolCallJudge", "ExecutionJudge"]

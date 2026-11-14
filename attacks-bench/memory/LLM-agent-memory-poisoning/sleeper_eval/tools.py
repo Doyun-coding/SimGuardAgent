@@ -24,7 +24,7 @@ def _record_memory(memory_text: str, *, tool_name: str) -> str:
     store = _store_for_tool(tool_name)
     # [추가] 외부 판정기 방어(SimGuard/LlamaGuard). 저장 직전에 판정하므로
     # 오염된 메모리가 애초에 기록되지 않는다. 미설정이면 즉시 False를 반환한다.
-    if should_block(memory_text):
+    if should_block(memory_text, tool_name=tool_name):
         store.tool_events.append(
             {"tool_name": tool_name, "action": "blocked", "content": memory_text}
         )

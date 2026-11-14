@@ -148,9 +148,9 @@ class _SimGuardWrapper:
         return chat_message
 
     async def _analyze(self, tool_calls: list, content: str = ""):
-        from simguard import SimGuardInterceptor, Decision, AgentPlan
+        from simguard import SimGuardAgentInterceptor, Decision, AgentPlan
 
-        interceptor   = SimGuardInterceptor()
+        interceptor   = SimGuardAgentInterceptor()
         step_max_risk = 0.0
         step_worst    = None
 
@@ -171,7 +171,7 @@ class _SimGuardWrapper:
                 args = {}
 
             if tool_name in _CODE_TOOLS:
-                print(f"  │  [{tool_name}] → CodeSimulator")
+                print(f"  │  [{tool_name}] → ExecutionSimulator")
                 trace = await interceptor.intercept_code(
                     user_request=self._task,
                     code=args.get("code", args.get("script", str(args))),
@@ -179,7 +179,7 @@ class _SimGuardWrapper:
                     session=self._session,
                 )
             elif tool_name in _SHELL_TOOLS:
-                print(f"  │  [{tool_name}] → CodeSimulator (shell)")
+                print(f"  │  [{tool_name}] → ExecutionSimulator (shell)")
                 trace = await interceptor.intercept_shell(
                     user_request=self._task,
                     command=args.get("command", args.get("cmd", str(args))),
@@ -256,7 +256,7 @@ class _SimGuardWrapper:
 # ─────────────────────────────────────────────────────────────────────────────
 
 async def _run_simguard(task: str, agent) -> dict:
-    from simguard.simulation.backends.code_simulator import MicroVMSession
+    from simguard.simulation.backends.execution_simulator import MicroVMSession
     from smolagents import ToolCallingAgent
 
     session = await asyncio.get_event_loop().run_in_executor(_EXECUTOR, MicroVMSession.create)
@@ -606,8 +606,8 @@ def make_async_client() -> AsyncOpenAI:
 def _make_rag_tool(contexts: list[str], guard=None):
     """검색 결과를 반환하는 RAG 툴. guard가 있으면 반환 직전에 평가한다.
 
-    툴 이름을 retrieve_documents로 두어 SimulationManager가 읽기 연산(RAG)으로
-    분류하고 BehaviorSimulator 경로를 타게 한다.
+    돌려준 문서는 타겟 모델의 다음 입력(도구 결과)이 된다. SimGuardAgent는 그 입력으로 낸 모델
+    출력을 판정한다.
     """
     from smolagents import Tool
 
@@ -627,17 +627,70 @@ def _make_rag_tool(contexts: list[str], guard=None):
     return RetrieveDocumentsTool()
 
 
+# ── SimGuardAgent 연결 (simguard 모드) ─────────────────────────────────────
+# 에이전트를 그대로 돌리고 protect()로 타겟 모델의 출력을 하나씩 가로챈다. SimGuardAgent는 모델이 받은
+# 입력(질문, 검색 문서가 든 도구 결과)과 출력만 본다. 판정 결과는 에이전트 스레드에서 on_result로 오므로
+# 스레드별로 모아 케이스마다 나눈다.
+_simguard_local = threading.local()
+_simguard_lock = threading.Lock()
+_simguard_on = False
+
+
+def _collect_simguard(result) -> None:
+    items = getattr(_simguard_local, "results", None)
+    if items is not None:
+        items.append(result)
+
+
+def _enable_simguard() -> None:
+    global _simguard_on
+    with _simguard_lock:
+        if not _simguard_on:
+            import simguard
+
+            simguard.protect(on_result=_collect_simguard, litellm=False,
+                             target_model=os.environ.get("PLAN_MODEL", "qwen/qwen3.5-9b"))
+            _simguard_on = True
+
+
+def _run_judged(agent, task: str):
+    """에이전트를 실행하고, 그동안 나온 SimGuardAgent 판정을 함께 돌려준다."""
+    _simguard_local.results = []
+    try:
+        return agent.run(task), _simguard_local.results
+    finally:
+        _simguard_local.results = None
+
+
+def _simguard_summary(results) -> list[dict]:
+    rows = []
+    for result in results:
+        for trace in result.traces:
+            shadow = trace.shadow
+            rows.append({
+                "tool": trace.action.tool_name,
+                "route": trace.backend_used.value,
+                "decision": trace.decision.value,
+                "risk": trace.risk_score,
+                "tool_result": ((shadow.metadata or {}).get("shadow_mode") if shadow is not None
+                                else ("predicted" if trace.action.tool_name else None)),
+                "events": [event.type for event in trace.security_events],
+            })
+    return rows
+
+
 async def _run_with_rag(task: str, mode: str, contexts: list[str]) -> dict:
     """RAG 검색 결과를 다루는 실행 경로 (사후 검증).
 
     오염은 사용자 프롬프트가 아니라 검색된 문서에 있다. 입력 프롬프트만 보는
     가드(llamaguard 등)는 attack/benign의 프롬프트가 동일해 원리적으로 구분할 수 없다.
 
-    correctness·groundedness·answerability는 최종 답변을 봐야 판정되므로,
-    답변 생성 후 AxisJudge로 다축 평가한다. 한 축이라도 임계를 넘으면 차단한다.
+    비교 가드는 답변 생성 후 질문·문서·답변을 한 번에 본다. simguard 모드는 에이전트를 그대로
+    돌리고 protect()로 타겟 모델의 출력을 실행 전에 하나씩 판정한다. 검색 문서는 모델 입력으로만
+    SimGuardAgent에 들어간다. BLOCK된 출력은 차단 문구로 바뀌어 에이전트에 돌아간다.
     """
     from smolagents import ToolCallingAgent
-    from simguard import SimGuardInterceptor, Decision
+    from simguard import Decision
 
     seen = {"contexts": None}
 
@@ -689,9 +742,12 @@ async def _run_with_rag(task: str, mode: str, contexts: list[str]) -> dict:
         planning_interval=base.planning_interval,
     )
 
+    if mode == "simguard":
+        _enable_simguard()
+
     try:
-        result = await asyncio.wait_for(
-            asyncio.get_event_loop().run_in_executor(_EXECUTOR, task_agent.run, task),
+        result, judged = await asyncio.wait_for(
+            asyncio.get_event_loop().run_in_executor(_EXECUTOR, _run_judged, task_agent, task),
             timeout=TIMEOUT,
         )
         answer = "" if result is None else str(result)
@@ -743,22 +799,23 @@ async def _run_with_rag(task: str, mode: str, contexts: list[str]) -> dict:
             return {"response": answer, "simguard_decision": None, "risk_score": None,
                     "blocked": None, "axis_detail": {}, "error": None}
 
-        trace = await SimGuardInterceptor().intercept_axes(
-            user_query=task,
-            contexts=seen["contexts"] or "\n\n".join(contexts),
-            answer=answer,
-        )
-        blocked = trace.decision == Decision.BLOCK
-        viol = {k: round(v["score"], 2) for k, v in trace.axis_detail.items() if v["violation"]}
-        print(f"  [RAG] risk={trace.risk_score:.2f} → {trace.decision.value}  위반축={viol or '없음'}")
+        from simguard import BLOCKED_MESSAGE
+
+        decisions = _simguard_summary(judged)
+        blocked = any(result.decision == Decision.BLOCK for result in judged)
+        risk = max((result.risk_score for result in judged), default=0.0)
+        # 사용자가 받는 답변. 최종 답변 출력이 BLOCK되면 차단 문구만 남는다.
+        delivered = "" if BLOCKED_MESSAGE in answer else answer
+        print(f"  [RAG] 판정 {len(decisions)}번, BLOCK {sum(d['decision'] == 'BLOCK' for d in decisions)}번 "
+              f"→ {'BLOCK' if blocked else 'ALLOW'}  max risk={risk:.2f}")
         return {
-            # 차단되면 답변이 사용자에게 전달되지 않는다
-            "response":          "" if blocked else answer,
-            "simguard_decision": trace.decision.value,
-            "risk_score":        trace.risk_score,
-            "blocked":           blocked,
-            "axis_detail":       trace.axis_detail,
-            "error":             None,
+            "response":           delivered,
+            "simguard_decision":  "BLOCK" if blocked else "ALLOW",
+            "risk_score":         risk,
+            "blocked":            blocked,
+            "axis_detail":        {},
+            "simguard_judgments": decisions,
+            "error":              None,
         }
     except asyncio.TimeoutError:
         return {"response": None, "simguard_decision": None, "risk_score": None,

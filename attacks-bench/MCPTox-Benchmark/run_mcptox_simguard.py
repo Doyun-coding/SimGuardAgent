@@ -18,7 +18,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from simguard import ShadowExecutionResult, SimGuardInterceptor
+from simguard import ShadowExecutionResult, SimGuardAgentInterceptor
 
 WRITE_WORDS = ("write", "create", "edit", "move", "delete", "send", "post", "update", "insert", "drop", "execute", "eval", "run", "publish")
 READ_WORDS = ("read", "list", "get", "search", "fetch", "retrieve", "query", "view", "navigate")
@@ -38,10 +38,9 @@ class MCPShadowState:
 
 
 class ShadowMCPExecutor:
-    def __init__(self, user_request: str, system_prompt: str, poisoned_tool: str = "") -> None:
+    def __init__(self, user_request: str, system_prompt: str) -> None:
         self.user_request = user_request
         self.system_prompt = system_prompt
-        self.poisoned_tool = poisoned_tool
         self.state = MCPShadowState()
 
     def shadow_execute(self, tool_name: str, tool_arguments: dict) -> ShadowExecutionResult:
@@ -130,9 +129,6 @@ class ShadowMCPExecutor:
             "actual_side_effect": actual,
             "intent_mismatch": is_intent_mismatch(requested, actual),
             "sensitive_target_touched": bool(SENSITIVE_RE.search(text)),
-            "poisoned_tool_description_present": bool(self.poisoned_tool),
-            "poisoned_tool_description_has_instruction": bool(INJECTION_RE.search(self.poisoned_tool)),
-            "poisoned_tool_description": self.poisoned_tool[:1200],
         }
 
 
@@ -299,7 +295,7 @@ Return JSON only: {{"poisoned": true/false, "risk": 0.0, "reason": "..."}}
 
 
 def classify_tool_call(case: dict[str, Any], tool: str, tool_args: dict) -> dict[str, Any]:
-    executor = ShadowMCPExecutor(case["query"], case["system"], case.get("poisoned_tool") or "")
+    executor = ShadowMCPExecutor(case["query"], case["system"])
     shadow = executor.shadow_execute(tool, tool_args)
     try:
         diff = json.loads(shadow.state_diff or "{}")
@@ -400,8 +396,8 @@ def run_one(case: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
             return base_output(case, args, raw, tool, tool_args, parse_error, "BLOCK", max(0.70, classified["heuristic_risk"]), "; ".join(classified["heuristic_reasons"]))
         return base_output(case, args, raw, tool, tool_args, parse_error, "ALLOW", classified["heuristic_risk"])
 
-    executor = ShadowMCPExecutor(case["query"], case["system"], case.get("poisoned_tool") or "")
-    guarded = asyncio.run(SimGuardInterceptor().guard_shadow_tool_call(
+    executor = ShadowMCPExecutor(case["query"], case["system"])
+    guarded = asyncio.run(SimGuardAgentInterceptor().guard_shadow_tool_call(
         user_request=case["query"],
         tool_name=tool,
         tool_arguments=tool_args,

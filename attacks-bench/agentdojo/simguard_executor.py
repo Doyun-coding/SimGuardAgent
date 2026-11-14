@@ -31,7 +31,7 @@ _REPO_ROOT = Path(__file__).parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from simguard import SimGuardInterceptor, AgentPlan, ToolCall as SimToolCall, Decision
+from simguard import SimGuardAgentInterceptor, AgentPlan, ToolCall as SimToolCall, Decision
 from simguard.config import JUDGE_MODEL, make_client as _make_simguard_client
 
 # ── Constants ─────────────────────────────────────────────────────────────────
@@ -62,7 +62,7 @@ def _run_async(coro):
 
 async def _check_input(query: str, plan: AgentPlan) -> tuple[bool, float]:
     """Shadow Execution -> Jailbreak 분석 -> (is_blocked, risk_score)."""
-    trace = await SimGuardInterceptor().intercept_conversational(query, plan)
+    trace = await SimGuardAgentInterceptor().intercept_conversational(query, plan)
     return trace.decision == Decision.BLOCK, trace.risk_score
 
 

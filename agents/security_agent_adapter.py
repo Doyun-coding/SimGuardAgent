@@ -183,7 +183,7 @@ async def _run_agent(task: str, entry: dict | None, *, agent_name: str, system_p
 
 
 async def _run_simguard(task: str, entry: dict | None, *, agent_name: str, system_prompt: str) -> dict[str, Any]:
-    from simguard import Decision, SimGuardInterceptor
+    from simguard import Decision, SimGuardAgentInterceptor
 
     base = await _run_agent(task, entry, agent_name=agent_name, system_prompt=system_prompt)
     if base.get("error"):
@@ -191,7 +191,7 @@ async def _run_simguard(task: str, entry: dict | None, *, agent_name: str, syste
     response = base.get("response") or ""
     raw_response = base.get("raw_response") or response
     judge_answer = response or raw_response
-    interceptor = SimGuardInterceptor()
+    interceptor = SimGuardAgentInterceptor()
     context_text = _contexts_text(entry)
     clean_context_text = _contexts_text(entry, "clean_contexts")
 

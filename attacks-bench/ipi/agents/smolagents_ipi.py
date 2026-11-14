@@ -99,9 +99,9 @@ class _IPISimGuardWrapper:
 
     async def _analyze(self, tool_calls: list, content: str = ""):
         import json as _j
-        from simguard import SimGuardInterceptor, Decision
+        from simguard import SimGuardAgentInterceptor, Decision
 
-        interceptor = SimGuardInterceptor()
+        interceptor = SimGuardAgentInterceptor()
         worst = None
 
         for tc in tool_calls:

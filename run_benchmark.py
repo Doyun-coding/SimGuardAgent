@@ -290,7 +290,7 @@ async def run(agent: str, benchmark: str, mode: str, limit: int | None, workers:
                 record["attack_kws"] = kws
                 record["kw_hit"] = any(k in text for k in kws) if text else False
             # 가드 모델의 판정 원문을 남긴다 (사후 검증용)
-            # AxisJudge 축별 상세 (평균 내지 않고 축마다 독립 보관)
+            # BehaviorJudge 축별 상세 (평균 내지 않고 축마다 독립 보관)
             if resp.get("axis_detail"):
                 record["axis_detail"] = resp["axis_detail"]
             # Preserve adapter diagnostics. These are essential for distinguishing
@@ -301,6 +301,7 @@ async def run(agent: str, benchmark: str, mode: str, limit: int | None, workers:
                 "shadow_risk_score", "shadow_decision", "shadow_axis_detail", "shadow_simulated_output",
                 "llamaguard_raw", "shieldgemma_raw", "granite_raw",
                 "ragdefender_removed", "robustrag_n", "robustrag_keywords",
+                "simguard_judgments",
             ):
                 if k in resp:
                     record[k] = resp[k]
