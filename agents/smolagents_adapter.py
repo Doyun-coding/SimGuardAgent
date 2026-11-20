@@ -92,232 +92,6 @@ def get_agent():
     return _local.agent
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# SimGuard 인터셉터
-# ─────────────────────────────────────────────────────────────────────────────
-
-# tool_name → CodeSimulator로 라우팅할 코드 실행 도구
-_CODE_TOOLS = {
-    "execute_python", "python_repl", "run_python", "python_interpreter",
-    "execute_code", "run_code", "code_interpreter", "code_execution",
-    "execute_javascript", "run_node", "run_js",
-}
-
-# tool_name → CodeSimulator로 라우팅할 Shell 실행 도구
-_SHELL_TOOLS = {
-    "bash", "shell", "run_bash", "execute_bash", "run_shell",
-    "terminal", "cmd", "powershell", "system_exec", "exec",
-}
-
-
-def _text_of(content) -> str:
-    """ChatMessage.content는 문자열이거나 [{"type":"text","text":...}] 형태다."""
-    if content is None:
-        return ""
-    if isinstance(content, str):
-        return content
-    if isinstance(content, list):
-        return "\n".join(
-            c.get("text", "") for c in content if isinstance(c, dict)
-        )
-    return str(content)
-
-
-class _BlockedBySimGuard(Exception):
-    def __init__(self, risk_score: float):
-        self.risk_score = risk_score
-
-
-class _SimGuardWrapper:
-    """SmolAgents model.generate()를 래핑해 매 step의 tool_calls를 SimGuard로 분석한다."""
-
-    def __init__(self, model, task: str, session=None):
-        self._model     = model
-        self._task      = task
-        self._session   = session
-        self._step      = 0
-        self.trace      = None
-        self.blocked    = False
-        self.block_risk = None
-
-    def generate(self, input_messages, **kwargs):
-        chat_message = self._model.generate(input_messages, **kwargs)
-        self._step += 1
-        asyncio.run(self._analyze(chat_message.tool_calls or [],
-                                  _text_of(chat_message.content)))
-        return chat_message
-
-    async def _analyze(self, tool_calls: list, content: str = ""):
-        from simguard import SimGuardAgentInterceptor, Decision, AgentPlan
-
-        interceptor   = SimGuardAgentInterceptor()
-        step_max_risk = 0.0
-        step_worst    = None
-
-        print(f"\n  ┌─[SimGuard step={self._step}] task: {self._task[:60]}...")
-        print(f"  │  tool_calls: {[tc.function.name for tc in tool_calls] or '없음 (conversational)'}")
-
-        for tc in tool_calls:
-            tool_name = tc.function.name
-            args      = tc.function.arguments or {}
-            if isinstance(args, str):
-                import json as _j
-                try:
-                    args = _j.loads(args)
-                except Exception:
-                    args = {}
-            if not isinstance(args, dict):
-                # json.loads가 dict가 아닌 값(문자열·리스트)을 반환하는 경우가 있다
-                args = {}
-
-            if tool_name in _CODE_TOOLS:
-                print(f"  │  [{tool_name}] → ExecutionSimulator")
-                trace = await interceptor.intercept_code(
-                    user_request=self._task,
-                    code=args.get("code", args.get("script", str(args))),
-                    language=args.get("language", "python"),
-                    session=self._session,
-                )
-            elif tool_name in _SHELL_TOOLS:
-                print(f"  │  [{tool_name}] → ExecutionSimulator (shell)")
-                trace = await interceptor.intercept_shell(
-                    user_request=self._task,
-                    command=args.get("command", args.get("cmd", str(args))),
-                    session=self._session,
-                )
-            elif tool_name == "final_answer":
-                # 최종 출력은 인자에 답변 전문이 들어 있다. 시뮬레이션 없이 그대로 평가한다.
-                answer = args.get("answer", args.get("final_answer", str(args)))
-                print(f"  │  [{tool_name}] → 실제 응답 평가  len={len(answer)}")
-                trace = await interceptor.intercept_final_answer(
-                    user_request=self._task,
-                    answer=answer,
-                )
-            else:
-                print(f"  │  [{tool_name}] → ToolCallSimulator  args={str(args)[:60]}")
-                trace = await interceptor.intercept_tool_call(
-                    user_request=self._task,
-                    tool_name=tool_name,
-                    tool_arguments=args,
-                )
-
-            events_str = ", ".join(f"{e.type}({e.severity})" for e in trace.security_events) or "없음"
-            print(f"  │    risk={trace.risk_score:.2f}  events={events_str}  → {trace.decision.value}")
-
-            if trace.risk_score > step_max_risk:
-                step_max_risk = trace.risk_score
-                step_worst    = trace
-
-            if trace.decision == Decision.BLOCK:
-                print(f"  └─[BLOCK] step={self._step}  risk={trace.risk_score:.2f}\n")
-                self.blocked    = True
-                self.block_risk = trace.risk_score
-                self.trace      = trace
-                raise _BlockedBySimGuard(trace.risk_score)
-
-        if step_worst is None and not tool_calls:
-            if content.strip():
-                # 계획 단계나 강제 최종 응답. 방금 생성된 원문이 있으므로 그대로 평가한다.
-                print(f"  │  tool_calls 없음 → 생성된 계획/응답 평가  len={len(content)}")
-                step_worst = await interceptor.intercept_plan(self._task, content)
-            else:
-                # 생성 내용이 없으면 태스크 기반 시뮬레이션으로 폴백
-                print(f"  │  tool_calls·content 없음 → BehaviorSimulator (conversational)")
-                step_worst = await interceptor.intercept_conversational(
-                    self._task,
-                    AgentPlan(
-                        agent_role="SmolAgents ToolCallingAgent",
-                        agent_persona="general-purpose research agent",
-                        sub_queries=[self._task[:200]],
-                        research_focus=self._task,
-                    ),
-                )
-            events_str = ", ".join(f"{e.type}({e.severity})" for e in step_worst.security_events) or "없음"
-            print(f"  │    risk={step_worst.risk_score:.2f}  events={events_str}  → {step_worst.decision.value}")
-            step_max_risk = step_worst.risk_score
-
-            if step_worst.decision == Decision.BLOCK:
-                print(f"  └─[BLOCK] step={self._step}  risk={step_worst.risk_score:.2f}\n")
-                self.blocked    = True
-                self.block_risk = step_worst.risk_score
-                self.trace      = step_worst
-                raise _BlockedBySimGuard(step_worst.risk_score)
-
-        self.trace = step_worst
-        decision   = step_worst.decision.value if step_worst else "ALLOW"
-        print(f"  └─[step={self._step}] risk={step_max_risk:.2f}  decision={decision}\n")
-
-    def __getattr__(self, name):
-        return getattr(self._model, name)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 실행 함수
-# ─────────────────────────────────────────────────────────────────────────────
-
-async def _run_simguard(task: str, agent) -> dict:
-    from simguard.simulation.backends.execution_simulator import MicroVMSession
-    from smolagents import ToolCallingAgent
-
-    session = await asyncio.get_event_loop().run_in_executor(_EXECUTOR, MicroVMSession.create)
-    wrapper = _SimGuardWrapper(agent.model, task, session=session)
-
-    # task마다 독립된 agent 인스턴스 생성 → workers race condition 방지
-    task_agent = ToolCallingAgent(
-        tools=list(agent.tools.values()),
-        model=wrapper,
-        verbosity_level=0,
-        max_steps=agent.max_steps,
-        planning_interval=agent.planning_interval,
-    )
-
-    try:
-        result = await asyncio.wait_for(
-            asyncio.get_event_loop().run_in_executor(_EXECUTOR, task_agent.run, task),
-            timeout=TIMEOUT,
-        )
-        trace = wrapper.trace
-        return {
-            # agent.run()이 None을 반환할 수 있다 (max steps 도달 등).
-            # str(None) -> "None" 문자열이 되어 평가에서 유효 응답으로 오인되므로 빈 문자열로 둔다.
-            "response":          "" if result is None else str(result),
-            "simguard_decision": trace.decision.value if trace else "ALLOW",
-            "risk_score":        trace.risk_score     if trace else 0.0,
-            "blocked":           False,
-            "error":             None,
-        }
-    except asyncio.TimeoutError:
-        trace = wrapper.trace
-        return {
-            "response":          None,
-            "simguard_decision": trace.decision.value if trace else "TIMEOUT",
-            "risk_score":        trace.risk_score     if trace else None,
-            "blocked":           wrapper.blocked,
-            "error":             "timeout",
-        }
-    except Exception:
-        if wrapper.blocked:
-            return {
-                "response":          None,
-                "simguard_decision": "BLOCK",
-                "risk_score":        wrapper.block_risk,
-                "blocked":           True,
-                "error":             None,
-            }
-        trace = wrapper.trace
-        import traceback
-        return {
-            "response":          None,
-            "simguard_decision": trace.decision.value if trace else "ERROR",
-            "risk_score":        trace.risk_score     if trace else None,
-            "blocked":           False,
-            "error":             traceback.format_exc()[-300:],
-        }
-    finally:
-        if session:
-            await asyncio.get_event_loop().run_in_executor(_EXECUTOR, session.stop)
-
-
 async def _run_baseline(task: str, agent) -> dict:
     from smolagents import ToolCallingAgent
 
@@ -648,7 +422,7 @@ def _enable_simguard() -> None:
         if not _simguard_on:
             import simguard
 
-            simguard.protect(on_result=_collect_simguard, litellm=False,
+            simguard.protect(on_result=_collect_simguard, providers=["openai"],
                              target_model=os.environ.get("PLAN_MODEL", "qwen/qwen3.5-9b"))
             _simguard_on = True
 
@@ -666,17 +440,56 @@ def _simguard_summary(results) -> list[dict]:
     rows = []
     for result in results:
         for trace in result.traces:
-            shadow = trace.shadow
+            live = trace.live_result
             rows.append({
                 "tool": trace.action.tool_name,
                 "route": trace.backend_used.value,
                 "decision": trace.decision.value,
                 "risk": trace.risk_score,
-                "tool_result": ((shadow.metadata or {}).get("shadow_mode") if shadow is not None
+                "tool_result": ((live.metadata or {}).get("live_mode") if live is not None
                                 else ("predicted" if trace.action.tool_name else None)),
                 "events": [event.type for event in trace.security_events],
             })
     return rows
+
+
+async def _run_simguard(task: str, agent) -> dict:
+    """에이전트를 그대로 돌리고 protect()로 타겟 모델의 출력을 실행 전에 하나씩 판정한다 (RAG 없는 태스크)."""
+    from smolagents import ToolCallingAgent
+    from simguard import BLOCKED_MESSAGE, Decision
+
+    # task마다 독립된 agent 인스턴스 생성 → workers race condition 방지
+    task_agent = ToolCallingAgent(
+        tools=list(agent.tools.values()),
+        model=agent.model,
+        verbosity_level=0,
+        max_steps=agent.max_steps,
+        planning_interval=agent.planning_interval,
+    )
+    _enable_simguard()
+    try:
+        result, judged = await asyncio.wait_for(
+            asyncio.get_event_loop().run_in_executor(_EXECUTOR, _run_judged, task_agent, task),
+            timeout=TIMEOUT,
+        )
+    except asyncio.TimeoutError:
+        return {"response": None, "simguard_decision": None, "risk_score": None,
+                "blocked": None, "axis_detail": {}, "error": "timeout"}
+    except Exception:
+        import traceback
+        return {"response": None, "simguard_decision": None, "risk_score": None,
+                "blocked": None, "axis_detail": {}, "error": traceback.format_exc()[-300:]}
+    answer = "" if result is None else str(result)
+    blocked = any(item.decision == Decision.BLOCK for item in judged)
+    return {
+        "response":           "" if BLOCKED_MESSAGE in answer else answer,
+        "simguard_decision":  "BLOCK" if blocked else "ALLOW",
+        "risk_score":         max((item.risk_score for item in judged), default=0.0),
+        "blocked":            blocked,
+        "axis_detail":        {},
+        "simguard_judgments": _simguard_summary(judged),
+        "error":              None,
+    }
 
 
 async def _run_with_rag(task: str, mode: str, contexts: list[str]) -> dict:

@@ -1,33 +1,31 @@
 """
 타겟 에이전트가 실제로 가진 도구를 이름으로 찾아온다.
 
-LLM 요청에는 도구 설명만 있고 실행할 코드는 없다. 에이전트와 같은 프로세스에 있는 도구 객체를
-찾아 이름, 설명, 인자 스키마, 실제 실행 함수를 RealTool 하나로 묶는다.
+LLM 요청에는 도구 설명만 있고 실행할 코드는 없다. 연결하는 곳에서 알려 준 도구 객체를 이름, 설명,
+인자 스키마, 실제 실행 함수를 묶은 RealTool 하나로 감싼다. 특정 에이전트 프레임워크를 가정하지 않는다.
+
+  simguard.protect(tools=[send_email, search_hotels])        # 목록 (이름은 도구에서 읽는다)
+  simguard.protect(tools={"send_email": my_send_email})       # {이름: 도구}
+  simguard.register_tools([...])                              # protect 밖에서 등록
 
   tool = simguard.find_tool("send_email")      # 없거나 같은 이름이 여럿이면 None
-  tool.parameters                              # JSON 스키마
   tool.call({"to": "...", "body": "..."})      # 실제 도구를 실행한다 (부작용 주의)
 
-지원:
-  LangChain  BaseTool (@tool, StructuredTool, BaseTool 하위 클래스)
-  smolagents Tool (@tool, Tool 하위 클래스)
-  MCP        ClientSession.list_tools()로 에이전트가 받아 간 도구 (track_mcp() 이후)
-  그 외      register_tool()로 등록한 Python 함수
+도구 객체는 공통 규칙으로 읽는다 (as_real_tool):
+  이름  name 속성 > 함수 이름.  설명  description 속성 > docstring.
+  인자  parameters / input_schema / tool_call_schema / args_schema / inputs 속성 > 함수 시그니처.
+  실행  invoke(인자) 메서드 > obj(**인자).
+도구에서 이름을 읽을 수 없으면 {이름: 도구}로 넘긴다.
+MCP 도구: ClientSession.list_tools()로 에이전트가 받아 간 도구를 기록한다 (track_mcp()).
 
-프레임워크 모듈이 이미 import된 경우에만 그 프레임워크의 도구를 찾는다. SimGuardAgent가
-프레임워크를 대신 import하지 않는다. 같은 이름의 서로 다른 도구가 여럿이면 어느 것인지 알 수
-없으므로 찾지 못한 것으로 본다.
-
-주의: RealTool.call()은 격리 없이 실제 도구를 실행한다. 판정용 shadow 실행에 쓰려면 도구 종류에
-맞는 격리(트랜잭션 롤백, Docker, mock)가 필요하다.
+같은 이름의 서로 다른 도구가 여럿이면 어느 것인지 알 수 없으므로 찾지 못한 것으로 본다.
+주의: RealTool.call()은 격리 없이 실제 도구를 실행한다. 판정 전 실행은 live_http(GET 전용)가 감싼다.
 """
 from __future__ import annotations
 
 import asyncio
 import concurrent.futures
-import gc
 import inspect
-import sys
 import threading
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
@@ -94,37 +92,54 @@ def _function_schema(function: Callable) -> dict:
 
 
 def register_tool(
-    function: Callable | None = None,
+    function: Any = None,
     *,
     name: str | None = None,
     description: str | None = None,
     parameters: dict | None = None,
 ):
-    """프레임워크 없이 만든 도구 함수를 등록한다. 데코레이터로도 쓸 수 있다.
+    """도구 하나를 등록한다. 데코레이터로도 쓸 수 있다.
+
+    Python 함수와 도구 객체를 받는다 (읽는 규칙은 as_real_tool).
 
     @simguard.register_tool
     def send_email(to: str, body: str) -> str: ...
     """
-    def register(target: Callable) -> Callable:
-        tool_name = name or target.__name__
-        tool = RealTool(
-            name=tool_name,
-            description=description if description is not None else inspect.getdoc(target) or "",
-            parameters=parameters or _function_schema(target),
-            framework="function",
-            target=target,
-            _invoke=lambda arguments: target(**arguments),
-        )
+    def register(target: Any) -> Any:
+        tool = as_real_tool(target, name=name)
+        if description is not None or parameters is not None:
+            tool = RealTool(
+                name=tool.name,
+                description=description if description is not None else tool.description,
+                parameters=parameters or tool.parameters,
+                framework=tool.framework,
+                target=tool.target,
+                _invoke=tool._invoke,
+                _loop=tool._loop,
+            )
         with _lock:
-            _registered[tool_name] = tool
+            _registered[tool.name] = tool
         return target
 
     return register(function) if function is not None else register
 
 
-def unregister_tool(name: str) -> None:
-    with _lock:
-        _registered.pop(name, None)
+def register_tools(tools: Any) -> list[str]:
+    """도구 여럿을 등록한다. 목록이면 이름을 도구에서 읽고, {이름: 도구}면 그 이름으로 등록한다."""
+    if tools is None:
+        return []
+    items = list(tools.items()) if isinstance(tools, Mapping) else [(None, tool) for tool in tools]
+    wrapped = [(name, as_real_tool(tool, name=name)) for name, tool in items]
+    seen: dict[str, int] = {}
+    for _, tool in wrapped:
+        seen[tool.name] = seen.get(tool.name, 0) + 1
+    clashes = sorted(name for name, count in seen.items() if count > 1)
+    if clashes:
+        # 예: 안쪽 함수 이름(execute)이 이름으로 읽힌 도구들. 잘못된 도구를 실행하지 않도록 등록하지 않는다.
+        raise ValueError(f"several tools read the same name {clashes}; pass them as {{name: tool}}")
+    for (name, tool), (_, real) in zip(items, wrapped):
+        register_tool(tool, name=real.name)
+    return [real.name for _, real in wrapped]
 
 
 # ---------------------------------------------------------------- MCP
@@ -165,7 +180,6 @@ def track_mcp() -> bool:
                 _mcp_tools[tool.name] = [*entries, _mcp_tool(self, tool, loop)]
         return result
 
-    list_tools.__simguard_original__ = original
     ClientSession.list_tools = list_tools
     _mcp_original = original
     return True
@@ -183,84 +197,103 @@ def untrack_mcp() -> None:
         _mcp_tools.clear()
 
 
-# ---------------------------------------------------------------- framework objects
+# ---------------------------------------------------------------- tool objects
 
-def _langchain_tool(tool: Any) -> RealTool:
-    schema = getattr(tool, "tool_call_schema", None)
-    if isinstance(schema, type) and hasattr(schema, "model_json_schema"):
-        parameters = schema.model_json_schema()
-    elif isinstance(schema, dict):
-        parameters = schema
+def _schema(value: Any) -> dict | None:
+    """JSON 스키마(dict) 또는 스키마를 내보내는 클래스(model_json_schema)를 dict로 바꾼다."""
+    if isinstance(value, Mapping):
+        return dict(value)
+    export = getattr(value, "model_json_schema", None) or getattr(value, "schema", None)
+    if callable(export):
+        try:
+            schema = export()
+        except Exception:
+            return None
+        return dict(schema) if isinstance(schema, Mapping) else None
+    return None
+
+
+def _inputs_schema(inputs: Mapping) -> dict:
+    """{인자: {"type", "description", "nullable"}} 형식의 인자 목록을 JSON 스키마로 바꾼다."""
+    properties, required = {}, []
+    for key, spec in inputs.items():
+        spec = spec if isinstance(spec, Mapping) else {}
+        properties[key] = {k: v for k, v in spec.items() if k in {"type", "description", "enum", "items"}}
+        if not spec.get("nullable") and not spec.get("optional"):
+            required.append(key)
+    return {"type": "object", "properties": properties, "required": required}
+
+
+def _parameters(obj: Any, call: Callable) -> dict:
+    """도구의 인자 스키마. 도구가 스키마를 갖고 있으면 그것을, 없으면 호출 함수의 시그니처를 쓴다."""
+    for attribute in ("parameters", "input_schema", "tool_call_schema", "args_schema"):
+        schema = _schema(getattr(obj, attribute, None))
+        if schema and schema.get("properties") is not None:
+            return schema
+    inputs = getattr(obj, "inputs", None)
+    if isinstance(inputs, Mapping) and inputs:
+        return _inputs_schema(inputs)
+    try:
+        return _function_schema(call)
+    except (TypeError, ValueError):
+        return {"type": "object", "properties": {}}
+
+
+def _invoker(obj: Any) -> Callable[[dict], Any]:
+    """도구를 인자 dict로 실행하는 방법. invoke(인자) 메서드가 있으면 그것을, 없으면 obj(**인자)로 부른다."""
+    invoke = getattr(obj, "invoke", None)
+    if callable(invoke):
+        return lambda arguments: invoke(arguments)
+    if callable(obj):
+        return lambda arguments: obj(**arguments)
+    raise TypeError(f"not a tool: {obj!r} (no invoke() and not callable)")
+
+
+def as_real_tool(obj: Any, name: str | None = None) -> RealTool:
+    """도구 객체 하나를 RealTool로 감싼다. 특정 프레임워크를 가정하지 않는다.
+
+    이름      name > 도구의 name 속성 > 함수 이름 (__name__)
+    설명      description 속성 > docstring
+    인자      parameters / input_schema / tool_call_schema / args_schema 속성 (JSON 스키마 또는
+              model_json_schema()를 가진 클래스) > inputs 속성 ({인자: {"type", ...}}) > 호출 함수의 시그니처
+    실행      invoke(인자) 메서드 > obj(**인자)
+    이름을 읽을 수 없는 도구(예: 이름이 안쪽 함수 이름인 도구)는 {이름: 도구}로 넘긴다.
+    """
+    if isinstance(obj, RealTool):
+        tool = obj
     else:
-        parameters = {"type": "object", "properties": dict(getattr(tool, "args", {}) or {})}
-    return RealTool(
-        name=tool.name,
-        description=tool.description or "",
-        parameters=parameters,
-        framework="langchain",
-        target=tool,
-        _invoke=tool.invoke,
-    )
-
-
-def _smolagents_tool(tool: Any) -> RealTool:
-    inputs = dict(getattr(tool, "inputs", {}) or {})
-    parameters = {
-        "type": "object",
-        "properties": {key: {k: v for k, v in spec.items() if k in {"type", "description"}} for key, spec in inputs.items()},
-        "required": [key for key, spec in inputs.items() if not spec.get("nullable")],
-    }
-    return RealTool(
-        name=tool.name,
-        description=tool.description or "",
-        parameters=parameters,
-        framework="smolagents",
-        target=tool,
-        _invoke=lambda arguments: tool(**arguments),
-    )
-
-
-def _framework_kinds() -> list[tuple[type, Callable[[Any], RealTool]]]:
-    """이미 import된 프레임워크의 도구 클래스만 돌려준다."""
-    kinds = []
-    if "langchain_core.tools" in sys.modules:
-        kinds.append((sys.modules["langchain_core.tools"].BaseTool, _langchain_tool))
-    if "smolagents" in sys.modules:
-        kinds.append((sys.modules["smolagents"].Tool, _smolagents_tool))
-    return kinds
-
-
-def _identity(tool: RealTool) -> Any:
-    """같은 도구를 가리키는 객체는 하나로 센다 (LangChain StructuredTool은 감싼 함수로)."""
-    return getattr(tool.target, "func", None) or getattr(tool.target, "coroutine", None) or tool.target
+        invoke = _invoker(obj)
+        call = obj if inspect.isfunction(obj) or inspect.ismethod(obj) else getattr(obj, "forward", None) or obj
+        own_name = getattr(obj, "name", None)
+        tool = RealTool(
+            name=name or (own_name if isinstance(own_name, str) and own_name else getattr(obj, "__name__", "")),
+            description=str(getattr(obj, "description", None) or inspect.getdoc(obj) or ""),
+            parameters=_parameters(obj, call),
+            framework="function" if inspect.isroutine(obj) else "object",
+            target=obj,
+            _invoke=invoke,
+        )
+        if not tool.name or tool.name == "<lambda>":
+            raise ValueError(f"cannot read a name for tool {obj!r}; pass it as {{name: tool}}")
+    if name and name != tool.name:
+        tool = RealTool(name=name, description=tool.description, parameters=tool.parameters,
+                        framework=tool.framework, target=tool.target, _invoke=tool._invoke, _loop=tool._loop)
+    return tool
 
 
 def _unique(candidates: list[RealTool]) -> RealTool | None:
-    distinct = {id(_identity(tool)): tool for tool in candidates}
+    distinct = {id(tool.target): tool for tool in candidates}
     return next(iter(distinct.values())) if len(distinct) == 1 else None
 
 
 def discover_tools() -> dict[str, list[RealTool]]:
-    """지금 프로세스에 있는 도구를 이름별로 모두 모은다."""
+    """알려 준 도구(register_tool·protect(tools=...))와 에이전트가 MCP 서버에서 받은 도구를 이름별로 모은다."""
     found: dict[str, list[RealTool]] = {}
     with _lock:
         for name, tool in _registered.items():
             found.setdefault(name, []).append(tool)
         for name, tools in _mcp_tools.items():
             found.setdefault(name, []).extend(tools)
-    kinds = _framework_kinds()
-    if kinds:
-        classes = tuple(kind for kind, _ in kinds)
-        for obj in gc.get_objects():
-            if isinstance(obj, classes) and isinstance(getattr(obj, "name", None), str):
-                for kind, wrap in kinds:
-                    if isinstance(obj, kind):
-                        try:
-                            tool = wrap(obj)
-                        except Exception:
-                            break
-                        found.setdefault(tool.name, []).append(tool)
-                        break
     return found
 
 

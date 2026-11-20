@@ -10,13 +10,13 @@ import json
 import os
 import re
 
-from simguard.config import SHADOW_MODEL
+from simguard.config import SIMULATOR_MODEL
 
 
-async def shadow_json_completion(client, prompt: str) -> str:
+async def simulator_json_completion(client, prompt: str) -> str:
     """Return JSON text without passing OpenRouter ``content=None`` onward."""
-    max_attempts = max(1, int(os.getenv("SHADOW_MAX_ATTEMPTS", "3")))
-    max_tokens = max(1024, int(os.getenv("SHADOW_MAX_TOKENS", "4096")))
+    max_attempts = max(1, int(os.getenv("SIMULATOR_MAX_ATTEMPTS", "3")))
+    max_tokens = max(1024, int(os.getenv("SIMULATOR_MAX_TOKENS", "4096")))
     # Thinking endpoints can spend the whole completion budget on reasoning
     # and return empty content, forcing a retry on every call. JUDGE_NO_THINK=1
     # disables reasoning from the first attempt (same knob as ExecutionJudge).
@@ -26,7 +26,7 @@ async def shadow_json_completion(client, prompt: str) -> str:
     for attempt in range(max_attempts):
         try:
             request = {
-                "model": SHADOW_MODEL,
+                "model": SIMULATOR_MODEL,
                 "temperature": 0,
                 "max_tokens": max_tokens,
                 "messages": [{
@@ -53,7 +53,7 @@ async def shadow_json_completion(client, prompt: str) -> str:
             if reasoning.strip():
                 last_reasoning = reasoning
             raise ValueError(
-                "shadow model returned empty content "
+                "simulator model returned empty content "
                 f"(finish_reason={resp.choices[0].finish_reason})"
             )
         except Exception as exc:
@@ -64,7 +64,7 @@ async def shadow_json_completion(client, prompt: str) -> str:
         return last_reasoning
     assert last_error is not None
     raise RuntimeError(
-        f"Shadow JSON completion failed after {max_attempts} attempts: "
+        f"Simulator JSON completion failed after {max_attempts} attempts: "
         f"{type(last_error).__name__}: {last_error}"
     ) from last_error
 
@@ -72,7 +72,7 @@ async def shadow_json_completion(client, prompt: str) -> str:
 def parse_json_object(content: str) -> dict:
     text = (content or "").strip()
     if not text:
-        raise ValueError("empty shadow response")
+        raise ValueError("empty simulator response")
     if text.startswith("```"):
         text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
         text = re.sub(r"\s*```$", "", text)
@@ -89,5 +89,5 @@ def parse_json_object(content: str) -> dict:
         else:
             raise
     if not isinstance(value, dict):
-        raise ValueError(f"shadow output was {type(value).__name__}, expected object")
+        raise ValueError(f"simulator output was {type(value).__name__}, expected object")
     return value

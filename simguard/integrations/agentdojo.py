@@ -14,12 +14,9 @@ SimGuardAgent Interceptor를 AgentDojo 파이프라인 요소로 끼운다. LLM�
       ToolsExecutionLoop([ToolsExecutor(), llm, SimGuardAgentInterceptor()]),
   ])
 
-도구 호출은 AgentDojo 환경을 깊은 복사한 shadow 환경에서 실제 도구로 먼저 실행해 본 뒤
-판정한다. 실제 환경은 ALLOW된 뒤 ToolsExecutor가 실행할 때만 바뀐다.
+도구 결과는 내부 모델이 앞 단계의 실제 도구 결과와 인자를 보고 예상한다. AgentDojo 환경은
+ALLOW된 뒤 ToolsExecutor가 실행할 때만 바뀐다.
 판정 결과는 extra_args["simguard_results"]에 InterceptionResult로 쌓인다.
-
-코드를 실행하는 에이전트는 execution_environment로 작업 파일을 알려 주면 ExecutionSimulator가
-그 파일이 들어 있는 컨테이너에서 코드를 시뮬레이션한다 (simguard.ExecutionEnvironment).
 """
 from __future__ import annotations
 
@@ -34,11 +31,10 @@ from agentdojo.agent_pipeline.tool_execution import ToolsExecutionLoop, tool_res
 from agentdojo.functions_runtime import EmptyEnv, Env, FunctionReturnType, FunctionsRuntime
 from agentdojo.types import ChatAssistantMessage, ChatMessage, get_text_content_as_str, text_content_block_from_string
 
-from simguard.execution_environment import ExecutionEnvironment
 from simguard.interceptor import BLOCKED_MESSAGE
 from simguard.interceptor import SimGuardAgentInterceptor as _Interceptor
+from simguard.execution_environment import ExecutionEnvironment
 from simguard.models import Decision
-from simguard.shadow_api import RuntimeShadowToolExecutor
 
 _LLM_MODULE = "agentdojo.agent_pipeline.llms"
 
@@ -98,11 +94,9 @@ class SimGuardAgentInterceptor(BasePipelineElement):
     def __init__(
         self,
         tool_output_formatter: Callable[[FunctionReturnType], str] = tool_result_to_str,
-        shadow_tools: bool = True,
         execution_environment: ExecutionEnvironment | None = None,
     ) -> None:
         self.tool_output_formatter = tool_output_formatter
-        self.shadow_tools = shadow_tools
         self.execution_environment = execution_environment
 
     def query(
@@ -120,19 +114,10 @@ class SimGuardAgentInterceptor(BasePipelineElement):
         history = [_to_openai(message) for message in messages[:-1]]
         output = _to_openai(messages[-1])
         tools = [_tool_definition(function) for function in runtime.functions.values()]
-        executors = None
-        if self.shadow_tools and runtime.functions:
-            executor = RuntimeShadowToolExecutor(runtime, env, self.tool_output_formatter)
-            executors = {name: executor for name in runtime.functions}
-
-        environment = self.execution_environment
-        factory = environment.factory(history) if environment is not None else None
         # 판정기의 LLM 클라이언트는 이벤트 루프에 묶이므로 호출마다 새로 만든다.
         result = _run(_Interceptor().intercept_output(
-            history, output, tools, executors, execution_session_factory=factory,
+            history, output, tools, execution_environment=self.execution_environment,
         ))
-        if environment is not None:
-            environment.record(history, result)
         extra_args["simguard_results"] = [*extra_args.get("simguard_results", []), result]
         if result.decision == Decision.BLOCK:
             blocked = ChatAssistantMessage(
@@ -168,18 +153,17 @@ def _guard(
 def with_simguard(
     pipeline: AgentPipeline,
     tool_output_formatter: Callable[[FunctionReturnType], str] = tool_result_to_str,
-    shadow_tools: bool = True,
     is_llm: Callable[[BasePipelineElement], bool] = _is_llm,
     execution_environment: ExecutionEnvironment | None = None,
 ) -> AgentPipeline:
     """파이프라인의 LLM 요소마다 바로 뒤에 SimGuardAgent Interceptor를 넣는다.
 
     AgentDojo 기본 LLM 요소는 자동으로 찾는다. 직접 만든 LLM 요소를 쓰면 is_llm으로 알려 준다.
-    코드를 실행하는 에이전트는 execution_environment로 작업 파일을 알려 준다.
+    execution_environment: 에이전트가 코드를 실행하는 작업 파일. 주면 코드 행동을 그 파일 위에서 실행해 본다.
     파이프라인의 다른 요소와 이름은 그대로 둔다.
     """
     def make() -> SimGuardAgentInterceptor:
-        return SimGuardAgentInterceptor(tool_output_formatter, shadow_tools, execution_environment)
+        return SimGuardAgentInterceptor(tool_output_formatter, execution_environment)
 
     guarded = _guard(pipeline.elements, make, is_llm)
     if not any(isinstance(element, SimGuardAgentInterceptor) for element in guarded):

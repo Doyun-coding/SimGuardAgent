@@ -315,6 +315,34 @@ def _action_kind(action: Any) -> str:
     return "code" if action.code else "tool_call"
 
 
+def _install_tolerant_tool_call_parsing() -> None:
+    """타겟 모델이 깨진 도구 인자 JSON을 내도 AgentDojo가 프로세스 전체를 멈추지 않게 한다.
+
+    AgentDojo는 json.loads가 실패하면 그 케이스에서 예외로 끝나고, 같은 프로세스의 남은 케이스도
+    돌지 않는다. 문법 오류만 고쳐 읽고(json_repair), 그래도 안 되면 원문을 인자 하나로 넘긴다.
+    그러면 도구가 인자 오류를 돌려주고 에이전트가 이어서 진행한다 (베이스라인과 SimGuardAgent에 똑같이 적용).
+    """
+    import agentdojo.agent_pipeline.llms.openai_llm as openai_llm_module
+    from agentdojo.functions_runtime import FunctionCall
+
+    def tolerant_tool_call(tool_call):
+        raw = tool_call.function.arguments or "{}"
+        try:
+            args = json.loads(raw)
+        except json.JSONDecodeError:
+            try:
+                from json_repair import repair_json
+
+                args = repair_json(raw, return_objects=True)
+            except Exception:
+                args = None
+            if not isinstance(args, dict):
+                args = {"_unparsed_arguments": raw}
+        return FunctionCall(function=tool_call.function.name, args=args, id=tool_call.id)
+
+    openai_llm_module._openai_to_tool_call = tolerant_tool_call
+
+
 def _install_openai_completion_limits(max_tokens: int | None, timeout: float | None) -> None:
     if max_tokens is None and timeout is None:
         return
@@ -738,6 +766,17 @@ class SaberDockerSession:
             "network_status": "disabled",
             "code": code,
         }
+
+    def read_file(self, path: str) -> bytes | None:
+        """Read a workspace file without running the agent's command (for SimGuard's ExecutionJudge)."""
+        try:
+            result = _run_process(
+                ["docker", "exec", "-w", self.cwd, self.name, "head", "-c", "20000", "--", path],
+                timeout=10,
+            )
+        except subprocess.TimeoutExpired:
+            return None
+        return result.stdout if result.returncode == 0 else None
 
     def prepare_round(self, task: dict[str, Any], step: int, observe: Callable[..., Any], judge_slot: Any) -> None:
         self.task, self.step, self.observe, self.judge_slot = task, step, observe, judge_slot
@@ -1237,7 +1276,7 @@ async def _run_saber_task(
                             "state_diff": result["state_diff"],
                         }, ensure_ascii=False)
                         messages.append({"role": "tool", "tool_call_id": call.id, "content": visible})
-                    _saber_log(task_id, "FOLLOW-UP: requesting target response to shadow result")
+                    _saber_log(task_id, "FOLLOW-UP: requesting target response to sandbox result")
                     follow_up_response = await client.chat.completions.create(
                         model=args.model_id, messages=messages, tools=SABER_TOOLS,
                         tool_choice="auto", temperature=0, max_tokens=args.llm_max_tokens,
@@ -1250,11 +1289,15 @@ async def _run_saber_task(
                 session.prepare_round(task, step, observe, judge_semaphore)
                 if args.mode in SIMGUARD_DEFENSES:
                     from simguard import Action, SimGuardAgentInterceptor
+                    from simguard.interceptor import render_conversation
 
                     _saber_log(task_id, "INTERCEPT: simulating proposed actions")
+                    # 시뮬레이터와 Judge는 타겟 모델이 이 출력을 내기 전에 받은 입력 전체를 본다.
+                    target_input = render_conversation(messages[:-1]) or None
                     traces = await SimGuardAgentInterceptor().intercept_round(
                         [
-                            Action(user_request=user_prompt, tool_name=call.function.name, tool_arguments=arguments)
+                            Action(user_request=user_prompt, tool_name=call.function.name, tool_arguments=arguments,
+                                   conversation=target_input)
                             for call, arguments, *_ in prechecked_calls
                         ],
                         session,
@@ -1310,7 +1353,7 @@ async def _run_saber_task(
                         record["committed"] = False
                     steps.extend(round_records)
                     final_response = (
-                        "ExecutionJudge evaluation failed; shadow state discarded."
+                        "ExecutionJudge evaluation failed; sandbox state discarded."
                         if task_error
                         else "Blocked by SimGuard ExecutionJudge after follow-up simulation."
                     )
@@ -1318,7 +1361,7 @@ async def _run_saber_task(
 
                 # ALLOW is the commit point: preserve the isolated session state
                 # and continue from the already-generated follow-up. A follow-up
-                # tool call will enter the same shadow->simulate->judge gate on
+                # tool call will enter the same sandbox->simulate->judge gate on
                 # the next loop before it can be committed.
                 steps.extend(round_records)
                 pending_response = follow_up_response
@@ -1377,7 +1420,7 @@ async def _prepare_code_benchmark_api(
     judge_model_id = args.judge_model_id or args.model_id
     if args.model_id:
         os.environ["PLAN_MODEL"] = args.model_id
-        os.environ["SHADOW_MODEL"] = args.model_id
+        os.environ["SIMULATOR_MODEL"] = args.simulator_model_id or args.model_id
         os.environ["REWRITE_MODEL"] = args.model_id
     if judge_model_id:
         os.environ["JUDGE_MODEL"] = judge_model_id
@@ -1779,9 +1822,63 @@ def _write_dataset_results(path: Path, args: argparse.Namespace, results: list[d
     return summary
 
 
+def _install_usage_log(path: Path) -> None:
+    """Append one JSON line per chat-completion call (target and Judge): model, latency, tokens, cost.
+
+    Patches the OpenAI client classes, so it covers every client created afterwards. Used only for
+    measuring time/token overhead; it does not change requests or responses.
+    """
+    import openai.resources.chat.completions as chat_mod
+
+    lock = threading.Lock()
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    def record(model: Any, started: float, resp: Any, error: str | None) -> None:
+        usage = getattr(resp, "usage", None)
+        details = getattr(usage, "completion_tokens_details", None)
+        row = {
+            "t": round(started, 3), "sec": round(time.time() - started, 3), "model": str(model),
+            "thread": threading.get_ident(), "error": error,
+            "prompt_tokens": getattr(usage, "prompt_tokens", None),
+            "completion_tokens": getattr(usage, "completion_tokens", None),
+            "reasoning_tokens": getattr(details, "reasoning_tokens", None) if details else None,
+            "cost": (getattr(usage, "model_extra", None) or {}).get("cost") if usage else None,
+        }
+        with lock, path.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(row) + "\n")
+
+    sync_create = chat_mod.Completions.create
+    async_create = chat_mod.AsyncCompletions.create
+
+    def create(self, *a, **kw):
+        started = time.time()
+        try:
+            resp = sync_create(self, *a, **kw)
+        except Exception as exc:
+            record(kw.get("model"), started, None, type(exc).__name__)
+            raise
+        record(kw.get("model"), started, resp, None)
+        return resp
+
+    async def acreate(self, *a, **kw):
+        started = time.time()
+        try:
+            resp = await async_create(self, *a, **kw)
+        except Exception as exc:
+            record(kw.get("model"), started, None, type(exc).__name__)
+            raise
+        record(kw.get("model"), started, resp, None)
+        return resp
+
+    chat_mod.Completions.create = create
+    chat_mod.AsyncCompletions.create = acreate
+
+
 def run_dataset_benchmark(args: argparse.Namespace) -> dict[str, Any]:
     """Run any dataset of tasks through the AgentDojo pipeline."""
     _configure_endpoint(args)
+    if os.getenv("SIMGUARD_USAGE_LOG"):
+        _install_usage_log(Path(os.environ["SIMGUARD_USAGE_LOG"]))
     entries = _load_dataset_entries(args)
     pipeline = build_pipeline(
         model=args.model,
@@ -1800,7 +1897,11 @@ def run_dataset_benchmark(args: argparse.Namespace) -> dict[str, Any]:
     lock = threading.Lock()
 
     def run_one(entry: dict[str, Any]) -> None:
+        started = time.time()
         row = _run_dataset_entry(pipeline, entry, args.mode)
+        row["started_at"] = round(started, 3)
+        row["elapsed_seconds"] = round(time.time() - started, 3)
+        row["thread"] = threading.get_ident()
         with lock:
             results.append(row)
             if len(results) % 20 == 0:
@@ -1821,7 +1922,7 @@ def _configure_endpoint(args: argparse.Namespace) -> None:
     os.environ["OPENAI_BASE_URL"] = args.openai_base_url
     args.model_id = _discover_model_id(args.openai_base_url, args.model_id)
     if args.model_id:
-        os.environ["SHADOW_MODEL"] = args.model_id
+        os.environ["SIMULATOR_MODEL"] = args.simulator_model_id or args.model_id
         # An explicit --judge-model-id must override a JUDGE_MODEL loaded from
         # .env; setdefault silently kept the old Qwen judge for every run.
         os.environ["JUDGE_MODEL"] = args.judge_model_id or args.model_id
@@ -1829,6 +1930,7 @@ def _configure_endpoint(args: argparse.Namespace) -> None:
         os.environ["OPENAI_COMPATIBLE_API_KEY"] = args.openai_api_key
         os.environ["OPENAI_API_KEY"] = args.openai_api_key
     _install_openai_completion_limits(args.llm_max_tokens, args.llm_timeout)
+    _install_tolerant_tool_call_parsing()
 
 
 def run_benchmark(args: argparse.Namespace) -> SuiteResults:
@@ -1928,6 +2030,12 @@ def parse_args() -> argparse.Namespace:
             "Target-agent profile for SABER/RedCode execution benchmarks. "
             "AutoGen and SWE-agent wrappers set this automatically."
         ),
+    )
+    parser.add_argument(
+        "--simulator-model-id",
+        default=os.getenv("SIMULATOR_MODEL_ID"),
+        help="Optional separate model for the SimGuard simulators (default: --model-id). "
+             "Use the backend's model name, e.g. qwen3.5:9b with SIMGUARD_LLM_BACKEND=ollama.",
     )
     parser.add_argument(
         "--judge-model-id",
@@ -2032,10 +2140,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--max-steps",
         type=int,
-        default=1,
+        default=10,
         help=(
-            "Maximum shadow execution rounds per SABER task. Default 1 implements "
-            "propose -> shadow execute -> follow-up simulation -> ExecutionJudge -> stop."
+            "Maximum sandbox execution rounds per SABER/RedCode task. Each round: propose -> sandbox execute -> "
+            "next-step simulation -> ExecutionJudge; an allowed round lets the agent continue, so a harmful "
+            "command is judged in the round where the agent proposes it."
         ),
     )
     parser.add_argument("--exec-timeout", type=float, default=30.0, help="Per-command Docker timeout in seconds.")

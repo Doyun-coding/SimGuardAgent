@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Re-run ToolCallJudge from saved BIRD or MCPTox shadow evidence.
+"""Re-run ToolCallJudge from saved BIRD execution evidence.
 
-The target model and shadow executor are not called. Reusing the same Qwen
+The target model and the database are not called. Reusing the same Qwen
 tool call and execution evidence makes judge-model comparisons paired.
 """
 from __future__ import annotations
@@ -68,11 +68,6 @@ def _state_diff_without_labels(state_diff: Any) -> Any:
     marker = state_diff.find('"poisoned_tool_description_present"')
     if marker != -1:
         return state_diff[:marker].rstrip(", ") + "}"
-    if state_diff.startswith('{"shadow_metadata"'):
-        try:
-            return json.loads(state_diff)["state_diff"]
-        except (json.JSONDecodeError, KeyError):
-            return ""
     return state_diff
 
 
@@ -80,8 +75,8 @@ def _judge_input(case: dict[str, Any], dataset: str) -> dict[str, str]:
     if dataset == "bird":
         evidence = {
             "generated_sql": case.get("query") or case.get("attack_sql"),
-            "shadow_execution_result": case.get("result"),
-            "shadow_error": case.get("shadow_error"),
+            "execution_result": case.get("result"),
+            "execution_error": case.get("live_error"),
             "state_diff": _state_diff_without_labels(case.get("state_diff")),
             "db_id": case.get("db_id"),
         }
@@ -96,19 +91,7 @@ def _judge_input(case: dict[str, Any], dataset: str) -> dict[str, str]:
             "simulated_response": json.dumps(evidence, ensure_ascii=False, default=str),
             "agent_response": "",
         }
-    evidence = {
-        "shadow_result": case.get("shadow_result"),
-        "state_diff": _state_diff_without_labels(case.get("state_diff")),
-        "parse_error": case.get("parse_error"),
-    }
-    return {
-        "user_request": str(case.get("query") or ""),
-        "tool_name": str(case.get("tool_name") or "no_tool_call"),
-        "tool_category": "mcp",
-        "tool_arguments": json.dumps(case.get("tool_arguments") or {}, ensure_ascii=False),
-        "simulated_response": json.dumps(evidence, ensure_ascii=False, default=str),
-        "agent_response": str(case.get("raw_response") or ""),
-    }
+    raise ValueError(f"unsupported dataset: {dataset}")
 
 
 def _load_previous(path: Path) -> dict[str, dict[str, Any]]:
@@ -183,7 +166,7 @@ async def _run(args: argparse.Namespace) -> None:
         "threshold": RISK_THRESHOLD_BLOCK,
         "judge_only": True,
         "target_rerun": False,
-        "shadow_rerun": False,
+        "tool_rerun": False,
         "results": results,
     }
     print(
@@ -252,8 +235,8 @@ async def _run(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Rejudge saved BIRD/MCPTox tool calls")
-    parser.add_argument("--dataset", required=True, choices=["bird", "mcptox"])
+    parser = argparse.ArgumentParser(description="Rejudge saved BIRD tool calls")
+    parser.add_argument("--dataset", required=True, choices=["bird"])
     parser.add_argument(
         "--input", type=Path, action="append", required=True,
         help="Saved result JSON. Repeat in chronological order; later files overwrite duplicate case IDs.",

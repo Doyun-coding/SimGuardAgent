@@ -78,8 +78,8 @@ Return JSON only:
 async def check_query(query: str, category: str = "unknown") -> dict:
     """단일 query에 대해 SimGuard LLM-as-Judge 직접 분석.
 
-    SafeMTData DPI: Shadow Execution 대신 query intent를 직접 분석.
-    (Shadow Model이 유해한 내용 시뮬레이션을 거부하므로 Shadow Execution 비적합)
+    SafeMTData DPI: 시뮬레이션 대신 query intent를 직접 분석.
+    ((시뮬레이터 모델이 유해한 내용 시뮬레이션을 거부하므로 시뮬레이션 비적합))
     """
     import json
 

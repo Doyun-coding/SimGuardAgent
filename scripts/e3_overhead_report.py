@@ -1,5 +1,5 @@
 """
-E3 오버헤드 리포트 — simguard.instrumentation 이 남긴 JSONL을 표로 집계한다.
+E3 오버헤드 리포트 — scripts/simguard_profiling.py 가 남긴 JSONL을 표로 집계한다.
 
 사용:
   python scripts/e3_overhead_report.py results/overhead_mcptox.jsonl
@@ -90,7 +90,7 @@ def main(path: str) -> None:
     print(f"\n[단계별 분해]  (전체 가드 지연 합계 {total_wall:.1f}s 기준)")
     print(f"  {'단계':<22}{'시간(s)':>10}{'비중':>8}{'LLM호출':>9}{'토큰/액션':>11}{'유형':>8}")
     print("  " + "-" * 70)
-    order = ["shadow_exec_real", "shadow_execute", "shadow_agent_step", "judge", "commit"]
+    order = ["live_exec_real", "predict_result", "predict_next_action", "judge", "commit"]
     seen = set()
     for s in order + sorted(set(st_time) | set(st_lat)):
         if s in seen:
@@ -105,11 +105,11 @@ def main(path: str) -> None:
         print(f"  {s:<22}{t:>10.2f}{share:>7.1f}%{st_n.get(s,0):>9}{tk:>11.0f}{kind:>8}")
 
     # ── 핵심 요약: 시뮬레이션 비용 vs 판정 비용 ──────────────────────────────
-    sim_keys = {"shadow_exec_real", "commit"}
+    sim_keys = {"live_exec_real", "commit"}
     sim_t = sum(sum(st_time.get(k, [])) for k in sim_keys)
     llm_t = sum(llm)
     print(f"\n[핵심 분해] 리뷰어 질문 'simulation justifies its complexity?' 에 대한 근거")
-    print(f"  실제 shadow 실행 + commit (비-LLM)  : {sim_t:>8.3f}s  "
+    print(f"  실제 도구 실행 + commit (비-LLM)   : {sim_t:>8.3f}s  "
           f"({sim_t/total_wall*100 if total_wall else 0:>5.2f}%)")
     print(f"  LLM 판정 대기                       : {llm_t:>8.3f}s  "
           f"({llm_t/total_wall*100 if total_wall else 0:>5.2f}%)")
@@ -147,7 +147,7 @@ def compare(paths: list[str]) -> None:
             "calls": sum(x["n_llm_calls"] for x in rows) / len(rows),
             "tok": sum(x["total_tokens"] for x in rows) / len(rows),
             "cost1k": sum(x.get("cost_usd") or 0.0 for x in rows) / len(rows) * 1000,
-            "sim_s": sum(st.get(k, 0.0) for k in ("shadow_exec_real", "commit")) / len(rows),
+            "sim_s": sum(st.get(k, 0.0) for k in ("live_exec_real", "commit")) / len(rows),
         })
     if not cols:
         print("비교할 데이터 없음")
@@ -172,7 +172,7 @@ def compare(paths: list[str]) -> None:
     row("LLM 호출 수 / 액션", "calls")
     row("토큰 / 액션", "tok", "{:>%d.0f}")
     row("1k 액션당 비용 (USD)", "cost1k", "{:>%d.4f}")
-    print(f"  {'실제 shadow 실행 (s)':<26}"
+    print(f"  {'실제 도구 실행 (s)':<26}"
           + "".join(("{:>%d.5f}" % w).format(c["sim_s"]) for c in cols))
 
     if len(cols) == 2:

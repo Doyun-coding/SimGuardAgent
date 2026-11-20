@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SimGuardAgent를 MicroVM(Docker 컨테이너) 안에서 실행
+# SimGuardAgent를 Docker 컨테이너 안에서 실행
 # 사용법: ./run_in_docker.sh --benchmark GA_Jailbreak --mode simguard --limit 50
 
 set -e

@@ -10,7 +10,7 @@ LiveReadExecutor: 도구를 GET 전용 모드로 실제 실행한다.
                                      SQLite 연결, 환경 변수 변경
   허용 도메인 밖 (allowed_hosts를 준 경우)  멈춘다.
 
-멈추면 shadow_execute가 None을 돌려주고, ToolCallSimulator는 내부 모델로 결과를 예상한다. 멈추기 전에
+멈추면 live_execute가 None을 돌려주고, ToolCallSimulator는 내부 모델로 결과를 예상한다. 멈추기 전에
 보낸 GET은 이미 나간 상태다.
 
 검사하는 곳
@@ -41,7 +41,7 @@ from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlsplit
 
-from simguard.shadow_api import ShadowExecutionResult
+from simguard.live_api import ToolRunResult
 
 _READ_METHODS = {"GET", "HEAD", "OPTIONS"}
 _MAX_RESULT = 8000
@@ -205,7 +205,7 @@ def _install() -> None:
 # ── 실행기 ────────────────────────────────────────────────────────────────
 
 def _format(value: Any) -> str:
-    content = getattr(value, "content", None)  # LangChain ToolMessage
+    content = getattr(value, "content", None)  # content 속성에 결과를 담은 메시지 객체
     if isinstance(content, str):
         value = content
     if isinstance(value, str):
@@ -255,7 +255,7 @@ class LiveReadExecutor:
         finally:
             _GUARD.reset(token)
 
-    async def shadow_execute(self, tool_name: str, tool_arguments: dict) -> ShadowExecutionResult | None:
+    async def live_execute(self, tool_name: str, tool_arguments: dict) -> ToolRunResult | None:
         guard = _Guard(self._allowed_hosts, self._ports)
         error = None
         try:
@@ -266,18 +266,18 @@ class LiveReadExecutor:
         except LiveReadStopped:
             return None
         except NotImplementedError:
-            return None  # 예: async 전용 LangChain 도구를 동기로 부른 경우. 실제 도구 결과가 아니다.
+            return None  # 예: async 전용 도구를 동기로 부른 경우. 실제 도구 결과가 아니다.
         except Exception as exc:
             value, error = "", f"{type(exc).__name__}: {exc}"
         if guard.stopped:
             # 도구가 멈춤 예외를 잡아 삼켰어도, 허용되지 않은 동작을 시도했으므로 결과를 쓰지 않는다.
             return None
-        return ShadowExecutionResult(
+        return ToolRunResult(
             result=_format(value),
             error=error,
             state_diff=json.dumps({"requests": guard.requests, "note": "GET-only live run: only the requests listed were sent"},
                                   ensure_ascii=False),
-            metadata={"shadow_mode": "live_read", "requests": list(guard.requests)},
+            metadata={"live_mode": "live_read", "requests": list(guard.requests)},
         )
 
 
@@ -290,7 +290,7 @@ def live_read_executor_for(tool_name: str, arguments: Any) -> LiveReadExecutor |
     """이 프로세스에 실제 도구가 있으면 GET 전용 실행기를 돌려준다. SQL 호출과 MCP 도구는 제외한다."""
     if not _config["enabled"]:
         return None
-    from simguard.shadow_db import is_sql_call
+    from simguard.live_db import is_sql_call
     from simguard.tool_discovery import find_tool
 
     if is_sql_call(arguments):

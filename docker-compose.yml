@@ -61,7 +61,7 @@ services:
       OPENAI_API_KEY: dummy
       AGENTDOJO_MODEL_ID: qwen-local
       PLAN_MODEL: qwen-local
-      SHADOW_MODEL: qwen-local
+      SIMULATOR_MODEL: qwen-local
       JUDGE_MODEL: qwen-local
       REWRITE_MODEL: qwen-local
     volumes:

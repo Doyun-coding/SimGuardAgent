@@ -55,17 +55,17 @@ def run_agent(db_path: str, prompt: str, model: str, with_database: bool = True)
     def record(result) -> None:
         traces = []
         for trace in result.traces:
-            shadow = trace.shadow
+            live = trace.live_result
             traces.append({
                 "tool": trace.action.tool_name,
                 "arguments": trace.action.tool_arguments,
                 "backend": str(trace.backend_used.value if hasattr(trace.backend_used, "value") else trace.backend_used),
                 "decision": str(trace.decision.value if hasattr(trace.decision, "value") else trace.decision),
                 "risk": trace.risk_score,
-                "shadow_mode": (shadow.metadata or {}).get("shadow_mode") if shadow is not None else None,
-                "shadow_result": (shadow.result[:600] if shadow is not None and shadow.result else None),
-                "shadow_error": shadow.error if shadow is not None else None,
-                "state_diff": shadow.state_diff if shadow is not None else None,
+                "live_mode": (live.metadata or {}).get("live_mode") if live is not None else None,
+                "live_result": (live.result[:600] if live is not None and live.result else None),
+                "live_error": live.error if live is not None else None,
+                "state_diff": live.state_diff if live is not None else None,
                 "events": [event.model_dump() for event in trace.security_events],
                 "simulated_output": (trace.simulated_output or "")[:600],
             })
@@ -81,7 +81,7 @@ def run_agent(db_path: str, prompt: str, model: str, with_database: bool = True)
     import simguard
 
     simguard.protect(
-        on_result=record, target_model=model, litellm=False,
+        on_result=record, target_model=model, providers=["openai"],
         database=(lambda: sqlite3.connect(config["DB_PATH"], check_same_thread=False)) if with_database else None,
     )
 
@@ -233,7 +233,7 @@ def summarize(rows: list[dict]) -> dict[str, Any]:
         stats["real_db_changed"] += row["real_db_changed"]
         stats["errors"] += bool(row.get("error"))
         stats["sql_calls_judged"] += sum(len(r.get("traces", [])) for r in row.get("simguard", []))
-        stats["shadow_copy_used"] += sum(t.get("shadow_mode") == "copy" for r in row.get("simguard", []) for t in r.get("traces", []))
+        stats["live_copy_used"] += sum(t.get("live_mode") == "copy" for r in row.get("simguard", []) for t in r.get("traces", []))
     return {category: dict(stats) for category, stats in sorted(by.items())}
 
 

@@ -7,28 +7,21 @@ import uuid
 
 class ActionType(str, Enum):
     CONVERSATIONAL = "conversational"   # -> LLM-only Simulation
-    CODE_EXECUTION = "code"             # -> MicroVM Execution
-    SHELL          = "shell"            # -> MicroVM Execution
-    TOOL_CALL      = "tool_call"        # -> Mock-tool Simulation
+    CODE_EXECUTION = "code"             # -> ExecutionSimulator (Docker)
+    SHELL          = "shell"            # -> ExecutionSimulator (Docker)
+    TOOL_CALL      = "tool_call"        # -> ToolCallSimulator
     FINAL_RESPONSE = "final_response"   # -> Simulator 없이 BehaviorJudge
 
 
 class SimulationBackend(str, Enum):
     LLM_ONLY  = "llm_only"
     ISOLATED  = "isolated"
-    MOCK_TOOL = "mock_tool"
+    TOOL_SIMULATION = "tool_simulation"
 
 
 class Decision(str, Enum):
     ALLOW = "ALLOW"
     BLOCK = "BLOCK"
-
-
-class AgentPlan(BaseModel):
-    agent_role:     str
-    agent_persona:  str
-    sub_queries:    List[str]
-    research_focus: str
 
 
 class SecurityEvent(BaseModel):
@@ -40,7 +33,8 @@ class SecurityEvent(BaseModel):
 
 class Action(BaseModel):
     user_request:    str
-    agent_plan:      Optional[AgentPlan] = None
+    # 타겟 모델이 이 행동과 함께 쓴 Plan 글과 reasoning
+    agent_plan:      Optional[str]       = None
     # FINAL_RESPONSE: Plan 없이 이미 생성된 타겟의 답변
     final_response:  Optional[str]       = None
     # CODE_EXECUTION
@@ -62,8 +56,9 @@ class Action(BaseModel):
     conversation:    Optional[str]       = None
     action_type:     Optional[ActionType] = None  # None -> manager가 자동 판별
     # Simulator가 행동을 실제로 돌려 볼 환경. 직렬화하지 않는다.
-    shadow_executor:   Any = Field(default=None, exclude=True)
-    execution_session: Any = Field(default=None, exclude=True)
+    live_executor:   Any = Field(default=None, exclude=True)
+    # 코드·셸 행동을 실행할 에이전트의 작업 파일 (simguard.ExecutionEnvironment). 직렬화하지 않는다.
+    execution_environment: Any = Field(default=None, exclude=True)
 
 
 class SimulationTrace(BaseModel):
@@ -76,8 +71,10 @@ class SimulationTrace(BaseModel):
     decision:         Decision           = Decision.ALLOW
     # BehaviorJudge가 채우는 축별 상세 판정 (평균 내지 않고 축마다 독립 보관)
     axis_detail:      dict               = Field(default_factory=dict)
-    # ToolCallSimulator가 shadow 환경에서 실제 도구를 실행한 결과. 기록용.
-    shadow:           Any                = Field(default=None, exclude=True)
+    # ToolCallSimulator가 판정 전에 실제 도구를 실행한 결과 (live_api.ToolRunResult). 기록용.
+    live_result:      Any                = Field(default=None, exclude=True)
+    # intercept_round가 격리 세션에서 실제로 실행한 결과 (returncode, stdout, 파일 변화 등). 기록용.
+    execution_result: Any                = Field(default=None, exclude=True)
 
 
 class InterceptionResult(BaseModel):

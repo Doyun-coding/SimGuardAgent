@@ -47,6 +47,28 @@ def _load_harmful(limit):
     return entries[:limit] if limit else entries
 
 
+def _load_jailbreakbench(limit, label: str = "attack"):
+    """JailbreakBench JBB-Behaviors: 유해 100건과, 같은 번호에 주제가 같은 정상 100건.
+
+    label: "attack" (harmful-behaviors.csv) | "benign" (benign-behaviors.csv) | "all" (둘 다)
+    id는 "<label>_<Index>" 이다. 같은 Index의 유해·정상 행동이 짝이다.
+    """
+    data_dir = _REPO_ROOT / "attacks-bench" / "jailbreak" / "data"
+    files = {"attack": data_dir / "harmful-behaviors.csv", "benign": data_dir / "benign-behaviors.csv"}
+    entries = []
+    for name in (["attack", "benign"] if label == "all" else [label]):
+        with open(files[name], encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                entries.append({
+                    "id":       f"{name}_{row['Index']}",
+                    "task":     row["Goal"],
+                    "method":   row.get("Behavior", ""),
+                    "category": row.get("Category", ""),
+                    "label":    name,
+                })
+    return entries[:limit] if limit else entries
+
+
 def _load_ga_jailbreak(limit, label: str = "attack"):
     """
     label: "attack" (label=1) | "benign" (label=0) | "all" (전체)
@@ -140,12 +162,13 @@ def _load_saferag(limit, label: str = "attack", mix: str = "poisoned"):
 BENCHMARKS = {
     "harmful":       (_load_harmful,      "jailbreak"),
     "GA_Jailbreak":  (_load_ga_jailbreak, "jailbreak"),
+    "JailbreakBench": (_load_jailbreakbench, "jailbreak"),
     "safedial":      (_load_safedial,     "multi-turn"),
     "saferag":       (_load_saferag,      "rag"),
 }
 
 # label(attack/benign)을 받는 벤치마크
-_LABELED_BENCHMARKS = {"GA_Jailbreak", "saferag"}
+_LABELED_BENCHMARKS = {"GA_Jailbreak", "JailbreakBench", "saferag"}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 에이전트 어댑터 레지스트리
@@ -153,7 +176,7 @@ _LABELED_BENCHMARKS = {"GA_Jailbreak", "saferag"}
 
 def _get_adapter(agent: str):
     if agent == "smolagents":
-        from agents.smolagents.smolagents_adapter import run_task
+        from agents.smolagents_adapter import run_task
         return run_task
     if agent == "agentdojo":
         from agents.agentdojo_adapter import run_task
@@ -298,7 +321,6 @@ async def run(agent: str, benchmark: str, mode: str, limit: int | None, workers:
             for k in (
                 "raw_response", "judge_source",
                 "final_risk_score", "final_decision", "final_axis_detail", "final_simulated_output",
-                "shadow_risk_score", "shadow_decision", "shadow_axis_detail", "shadow_simulated_output",
                 "llamaguard_raw", "shieldgemma_raw", "granite_raw",
                 "ragdefender_removed", "robustrag_n", "robustrag_keywords",
                 "simguard_judgments",

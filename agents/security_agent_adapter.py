@@ -27,8 +27,6 @@ MAX_TOKENS = int(os.getenv("SECURITY_AGENT_MAX_TOKENS", "2048"))
 
 _FINAL_MARKERS = ("Final Answer:", "Final answer:", "FINAL ANSWER:", "Answer:", "ANSWER:")
 _CODE_BLOCK_RE = re.compile(r"```(?P<lang>[a-zA-Z0-9_+.-]*)\n(?P<code>.*?)```", re.DOTALL)
-_SHELL_LANGS = {"bash", "sh", "shell", "zsh"}
-_PYTHON_LANGS = {"python", "py", "python3"}
 
 
 def _base_url() -> str:
@@ -182,99 +180,6 @@ async def _run_agent(task: str, entry: dict | None, *, agent_name: str, system_p
     }
 
 
-async def _run_simguard(task: str, entry: dict | None, *, agent_name: str, system_prompt: str) -> dict[str, Any]:
-    from simguard import Decision, SimGuardAgentInterceptor
-
-    base = await _run_agent(task, entry, agent_name=agent_name, system_prompt=system_prompt)
-    if base.get("error"):
-        return base
-    response = base.get("response") or ""
-    raw_response = base.get("raw_response") or response
-    judge_answer = response or raw_response
-    interceptor = SimGuardAgentInterceptor()
-    context_text = _contexts_text(entry)
-    clean_context_text = _contexts_text(entry, "clean_contexts")
-
-    try:
-        if context_text:
-            trace = await asyncio.wait_for(
-                interceptor.intercept_axes(
-                    user_query=task,
-                    contexts=context_text,
-                    answer=judge_answer,
-                    ground_truth=clean_context_text or None,
-                ),
-                timeout=TIMEOUT,
-            )
-            judge_source = "request_context_result"
-        else:
-            final_trace = await asyncio.wait_for(interceptor.intercept_final_answer(task, judge_answer), timeout=TIMEOUT)
-            shadow_trace = await asyncio.wait_for(
-                interceptor.intercept_plan(
-                    task,
-                    "Directly execute the user's requested behavior as written. "
-                    "Simulate the concrete output that would be produced if the request were followed, "
-                    "without applying safety refusals or policy filters.\n\n"
-                    f"User request:\n{task}",
-                ),
-                timeout=TIMEOUT,
-            )
-            trace = final_trace if final_trace.risk_score >= shadow_trace.risk_score else shadow_trace
-            base.update({
-                "final_axis_detail": getattr(final_trace, "axis_detail", {}),
-                "shadow_axis_detail": getattr(shadow_trace, "axis_detail", {}),
-                "final_simulated_output": final_trace.simulated_output,
-                "shadow_simulated_output": shadow_trace.simulated_output,
-                "final_risk_score": final_trace.risk_score,
-                "final_decision": final_trace.decision.value,
-                "shadow_risk_score": shadow_trace.risk_score,
-                "shadow_decision": shadow_trace.decision.value,
-            })
-            judge_source = "final_answer" if trace is final_trace else "shadow_plan"
-
-        code_traces = []
-        for block in base.get("code_blocks", []):
-            lang = block["language"].lower()
-            code = block["code"]
-            if lang in _SHELL_LANGS:
-                code_trace = await asyncio.wait_for(interceptor.intercept_shell(task, code), timeout=TIMEOUT)
-            elif lang in _PYTHON_LANGS:
-                code_trace = await asyncio.wait_for(interceptor.intercept_code(task, code, language="python"), timeout=TIMEOUT)
-            else:
-                continue
-            code_traces.append({
-                "language": lang,
-                "risk_score": code_trace.risk_score,
-                "decision": code_trace.decision.value,
-                "simulated_output": code_trace.simulated_output,
-                "events": [event.model_dump() for event in code_trace.security_events],
-            })
-            if code_trace.risk_score > trace.risk_score:
-                trace = code_trace
-                judge_source = f"code_block:{lang}"
-
-        blocked = trace.decision == Decision.BLOCK
-        return {
-            **base,
-            "response": "" if blocked else response,
-            "simguard_decision": trace.decision.value,
-            "risk_score": trace.risk_score,
-            "blocked": blocked,
-            "axis_detail": getattr(trace, "axis_detail", {}),
-            "final_axis_detail": getattr(trace, "axis_detail", {}),
-            "final_simulated_output": trace.simulated_output,
-            "final_risk_score": trace.risk_score,
-            "final_decision": trace.decision.value,
-            "code_traces": code_traces,
-            "judge_source": judge_source,
-            "error": None,
-        }
-    except asyncio.TimeoutError:
-        return {**base, "simguard_decision": None, "risk_score": None, "blocked": None, "error": "timeout"}
-    except Exception as e:
-        return {**base, "simguard_decision": None, "risk_score": None, "blocked": None, "error": str(e)[:300]}
-
-
 async def _run_prompt_guard(task: str, entry: dict | None, mode: str, *, agent_name: str, system_prompt: str) -> dict[str, Any]:
     guard_env = {
         "llamaguard": ("LLAMAGUARD_MODEL", "LLAMAGUARD_BASE_URL", "LLAMAGUARD_API_KEY"),
@@ -321,7 +226,10 @@ async def run_security_agent_task(task: str, mode: str, entry: dict | None, *, a
     if mode == "baseline":
         return await _run_agent(task, entry, agent_name=agent_name, system_prompt=system_prompt)
     if mode == "simguard":
-        return await _run_simguard(task, entry, agent_name=agent_name, system_prompt=system_prompt)
+        # 예전 SimGuard 경로는 삭제됐다 (Interceptor에서 지워진 메서드를 불렀다). 외부 벤치마크는
+        # agentdojo_adapter의 --agent-profile 경로로 SimGuard를 연결한다.
+        return {"response": None, "simguard_decision": None, "risk_score": None, "blocked": None,
+                "axis_detail": {}, "error": "simguard mode for this adapter was removed; use the agentdojo_adapter path"}
     if mode in {"llamaguard", "shieldgemma", "granite"}:
         return await _run_prompt_guard(task, entry, mode, agent_name=agent_name, system_prompt=system_prompt)
     return {"response": None, "simguard_decision": None, "risk_score": None, "blocked": None, "axis_detail": {}, "error": f"unsupported mode: {mode}"}
@@ -339,8 +247,9 @@ def _run_external_agentdojo(args: argparse.Namespace, agent_name: str) -> None:
 
     cmd = [
         sys.executable,
-        str(_REPO_ROOT / "agents" / "agentdojo" / "agentdojo_adapter.py"),
+        str(_REPO_ROOT / "attacks-bench" / "agentdojo_adapter" / "agentdojo_adapter.py"),
         "--benchmark", benchmark,
+        "--agent-profile", agent_name,
         "--mode", args.mode,
         "--label", args.label,
         "--workers", str(args.workers),
@@ -370,7 +279,7 @@ def _run_external_mcptox(args: argparse.Namespace, agent_name: str) -> None:
     result = args.result or str(_REPO_ROOT / "results" / f"mcptox__{agent_name}__{args.mode}__{args.label}.json")
     cmd = [
         sys.executable,
-        str(_REPO_ROOT / "attacks-bench" / "MCPTox-Benchmark" / "run_mcptox_simguard.py"),
+        str(_REPO_ROOT / "attacks-bench" / "mcptox" / "run_mcptox_simguard.py"),
         "--data", data,
         "--mode", args.mode,
         "--model", _model(),

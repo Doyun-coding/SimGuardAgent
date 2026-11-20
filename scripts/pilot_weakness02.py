@@ -1,7 +1,6 @@
 """
 Weakness-02 파일럿 분석 — 기존 로그만 사용 (LLM 호출 0회, 재실행 0회)
 
-E1. 시뮬레이션 충실도  : shadow_decision vs final_decision (agreement, Cohen's kappa)
 E5. threshold 민감도   : risk_score + label -> ROC / AUROC / TPR@FPR
 E6. baseline 비교      : 방어별 TPR/FPR 한 표
 E4. benign utility     : rageval 파일의 utility 지표
@@ -117,85 +116,6 @@ def hdr(t):
 # ─────────────────────────────────────────────────────────────────────────────
 # E1. 시뮬레이션 충실도
 # ─────────────────────────────────────────────────────────────────────────────
-
-def e1_fidelity():
-    hdr("E1. 시뮬레이션 충실도 — shadow(시뮬레이션) vs final(실제 실행)")
-    rows = []
-    for f in sorted(BASE.rglob("*.json")):
-        _, recs = load(f)
-        if not recs or not isinstance(recs[0], dict):
-            continue
-        usable = [r for r in recs
-                  if r.get("shadow_decision") and r.get("final_decision") and not r.get("error")]
-        if len(usable) < 20:
-            continue
-        pairs = [(r["shadow_decision"], r["final_decision"]) for r in usable]
-        n = len(pairs)
-        agree = sum(1 for a, b in pairs if a == b)
-        cm = Counter(pairs)
-        k = cohens_kappa(pairs)
-
-        # risk score 상관 (Pearson)
-        xs = [float(r.get("shadow_risk_score") or 0) for r in usable]
-        ys = [float(r.get("final_risk_score") or 0) for r in usable]
-        mx, my = sum(xs) / n, sum(ys) / n
-        num = sum((a - mx) * (b - my) for a, b in zip(xs, ys))
-        dx = math.sqrt(sum((a - mx) ** 2 for a in xs))
-        dy = math.sqrt(sum((b - my) ** 2 for b in ys))
-        pear = num / (dx * dy) if dx and dy else float("nan")
-        mae = sum(abs(a - b) for a, b in zip(xs, ys)) / n
-
-        # 출력 유사도
-        sims = [jaccard(r.get("shadow_simulated_output", ""),
-                        r.get("final_simulated_output") or r.get("response", ""))
-                for r in usable if r.get("shadow_simulated_output")]
-        sim = sum(sims) / len(sims) if sims else float("nan")
-
-        rows.append({
-            "file": str(f.relative_to(BASE)),
-            "n": n, "agree": agree / n, "kappa": k,
-            "AA": cm[("ALLOW", "ALLOW")], "BB": cm[("BLOCK", "BLOCK")],
-            "AB": cm[("ALLOW", "BLOCK")], "BA": cm[("BLOCK", "ALLOW")],
-            "pearson": pear, "mae": mae, "jaccard": sim,
-        })
-
-    if not rows:
-        print("  shadow/final 쌍을 가진 파일 없음")
-        return rows
-
-    rows.sort(key=lambda r: -r["n"])
-    print(f"\n{'파일':<62}{'n':>6}{'일치':>8}{'kappa':>8}{'r':>7}{'MAE':>7}{'출력J':>7}")
-    print("-" * 105)
-    for r in rows:
-        name = r["file"] if len(r["file"]) <= 60 else "..." + r["file"][-57:]
-        print(f"{name:<62}{r['n']:>6}{r['agree']*100:>7.1f}%{r['kappa']:>8.3f}"
-              f"{r['pearson']:>7.3f}{r['mae']:>7.3f}{r['jaccard']:>7.3f}")
-
-    tot = sum(r["n"] for r in rows)
-    print("-" * 105)
-    print(f"{'가중 평균':<62}{tot:>6}"
-          f"{sum(r['agree']*r['n'] for r in rows)/tot*100:>7.1f}%"
-          f"{sum(r['kappa']*r['n'] for r in rows)/tot:>8.3f}")
-
-    print("\n[혼동행렬 합계]  shadow \\ final")
-    AA = sum(r["AA"] for r in rows); BB = sum(r["BB"] for r in rows)
-    AB = sum(r["AB"] for r in rows); BA = sum(r["BA"] for r in rows)
-    print(f"              final=ALLOW   final=BLOCK")
-    print(f"  shadow=ALLOW   {AA:>8}      {AB:>8}   <- 시뮬레이션이 놓친 것")
-    print(f"  shadow=BLOCK   {BA:>8}      {BB:>8}")
-    print(f"\n  시뮬레이션 과탐(BA, 실제는 안전한데 시뮬레이션이 위험판정): {BA}건 "
-          f"({BA/(AA+AB+BA+BB)*100:.2f}%)")
-    print(f"  시뮬레이션 미탐(AB, 실제는 위험한데 시뮬레이션이 통과):     {AB}건 "
-          f"({AB/(AA+AB+BA+BB)*100:.2f}%)")
-    return rows
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# E5. threshold 민감도
-# ─────────────────────────────────────────────────────────────────────────────
-
-_SPLIT_RE = re.compile(r"__(attack|benign)(-mixed)?(_[a-z0-9]+)?$", re.IGNORECASE)
-
 
 def _variant_key(f: Path) -> tuple[str, str] | None:
     """파일명을 (변종 식별자, split) 으로 분해. 변종이 섞이지 않도록 파일 쌍으로 묶는다."""
@@ -400,7 +320,6 @@ def e4_utility():
 
 
 if __name__ == "__main__":
-    e1 = e1_fidelity()
     e5_threshold()
     e6_baselines()
     e4_utility()

@@ -15,14 +15,16 @@ import ast
 import json
 import os
 import re
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 
+from simguard import languages
 from simguard.decision.controller import DecisionController
-from simguard.models import Action, ActionType, AgentPlan, Decision, InterceptionResult, SimulationTrace
+from simguard.models import Action, ActionType, Decision, InterceptionResult, SimulationTrace
 from simguard.simulation.manager import SimulationManager
 from simguard.internal_database import internal_database_for
-from simguard.shadow_http import live_read_executor_for
-from simguard.shadow_api import ShadowToolExecutor
+from simguard.live_http import live_read_executor_for
+from simguard.live_api import LiveToolExecutor
+from simguard.execution_environment import ExecutionEnvironment
 
 
 BLOCKED_MESSAGE = "This action was blocked by SimGuardAgent."
@@ -35,9 +37,8 @@ _CODE_TOOLS = {
     "execute_code", "run_code", "code_interpreter", "code_execution",
     "execute_javascript", "run_node", "run_js",
 }
-_SHELL_NAME_TOKENS = {"bash", "sh", "shell", "zsh", "terminal", "cmd", "command", "powershell"}
-_CODE_NAME_TOKENS = {"python", "python3", "ipython", "javascript", "js", "node", "code", "repl"}
-_SCRIPT_NAME_TOKENS = {"javascript", "js", "node"}
+_SHELL_NAME_TOKENS = {"bash", "sh", "shell", "zsh", "terminal", "cmd", "command", "powershell", "pwsh"}
+_CODE_NAME_TOKENS = languages.NAME_TOKENS | {"code", "repl", "script"}
 _RUN_NAME_TOKENS = {"run", "exec", "execute", "eval"}
 _CODE_ARGUMENT_KEYS = ("command", "commands", "cmd", "code", "script", "input", "source")
 _THINK_RE = re.compile(r"<think>(.*?)</think>", re.DOTALL)
@@ -71,9 +72,6 @@ _FENCE_RE = re.compile(r"```([\w+-]*)[ \t]*\n?(.*?)```", re.DOTALL)
 _SHELL_LINE_RE = re.compile(rf"(?m)^[ \t]*(?:\$[ \t]+)?({_SHELL_COMMAND}[^\n]*)$")
 _INLINE_SHELL_RE = re.compile(rf"`({_SHELL_COMMAND}[^`]*)`")
 _PYTHON_SOURCE_RE = re.compile(r"(?m)^\s*(?:import\s+\w|from\s+\w+\s+import|def\s+\w+\(|print\()")
-_PYTHON_FENCES = {"python", "py", "python3"}
-_SCRIPT_FENCES = {"javascript", "js", "node"}
-_SHELL_FENCES = {"bash", "sh", "shell", "zsh", "console"}
 _JSON_NAME_KEYS = ("name", "tool", "tool_name", "action")
 _JSON_ARGUMENT_KEYS = ("arguments", "args", "parameters", "input", "action_input")
 _JSON_AFTER_NAME_RE = re.compile(
@@ -87,12 +85,15 @@ def _code_in_plan(text: str) -> dict | None:
         language, body = language.lower(), body.strip()
         if not body:
             continue
-        if language in _PYTHON_FENCES or (not language and _PYTHON_SOURCE_RE.search(body)):
+        if language:
+            # 알려진 언어 표시면 어떤 언어든 코드다. json·yaml 같은 데이터 블록과 모르는 표시는 건너뛴다.
+            if languages.is_known(language) and languages.canonical(language):
+                return {"code": body, "language": languages.canonical(language)}
+            continue
+        if _PYTHON_SOURCE_RE.search(body):
             return {"code": body, "language": "python"}
-        if language in _SCRIPT_FENCES:
-            return {"code": body, "language": "javascript"}
-        if language in _SHELL_FENCES or (not language and _SHELL_LINE_RE.search(body)):
-            return {"code": body, "language": "shell"}
+        if _SHELL_LINE_RE.search(body):
+            return {"code": body, "language": languages.SHELL}
     command = _SHELL_LINE_RE.search(text) or _INLINE_SHELL_RE.search(text)
     if command:
         return {"code": command.group(1).strip(), "language": "shell"}
@@ -230,6 +231,20 @@ def _code_tool_kind(name: str) -> str | None:
     return None
 
 
+def _tool_language(tool_name: str, kind: str, arguments: dict) -> str:
+    """코드 실행 도구의 언어. 인자의 language, 도구 이름에 든 언어 이름, 기본값(셸 또는 python) 순으로 정한다."""
+    tokens = _name_tokens(tool_name)
+    if kind == "shell":
+        return "powershell" if tokens & {"powershell", "pwsh"} else languages.SHELL
+    declared_raw = str(arguments.get("language") or arguments.get("lang") or "").split()
+    declared = languages.canonical(declared_raw[0]) if declared_raw else None
+    if declared:
+        return declared
+    for token in sorted(tokens & languages.NAME_TOKENS):
+        return languages.canonical(token) or "python"
+    return "python"
+
+
 def _code_argument(arguments: dict) -> str:
     """코드 실행 도구의 인자에서 실행할 코드를 꺼낸다. 없으면 빈 문자열."""
     for key in _CODE_ARGUMENT_KEYS:
@@ -255,9 +270,7 @@ def _capture(action: Action) -> Action:
         if not code:
             # 코드 실행 도구인데 실행할 코드를 읽지 못했다. 빈 코드를 샌드박스에서 돌리지 않는다.
             return action.model_copy(update={"action_type": ActionType.TOOL_CALL})
-        default_language = "javascript" if _name_tokens(action.tool_name) & _SCRIPT_NAME_TOKENS else "python"
-        language = "shell" if kind == "shell" else str(args.get("language") or default_language)
-        return action.model_copy(update={"code": code, "language": language})
+        return action.model_copy(update={"code": code, "language": _tool_language(action.tool_name, kind, args)})
     return action
 
 
@@ -271,14 +284,67 @@ class SimGuardAgentInterceptor:
         trace.decision = self._controller.decide(trace.risk_score)
         return trace
 
+    async def intercept_round(self, actions: Sequence[Action], session) -> list[SimulationTrace]:
+        """한 번의 모델 출력에 든 코드·셸 도구 호출들을 벤치마크가 준 격리 세션에서 실행하고 판정한다.
+
+        SABER처럼 벤치마크가 태스크마다 버려지는 컨테이너를 따로 띄우는 경우에 쓴다. 세션이 그 경우의
+        ExecutionSimulator 실행 환경이다. 실행 결과를 본 에이전트의 다음 단계는 내부 모델이 시뮬레이션하고,
+        ExecutionJudge가 판정한다. 컨테이너 상태를 이어 쓸지는(ALLOW일 때만) 어댑터가 정한다.
+
+        session에 필요한 것:
+          execute_action(tool_name, arguments) -> {"returncode", "stdout", "stderr", "fs_changes", ...}
+          follow_up(results) (선택)             모두 ALLOW이면 에이전트가 이어서 진행하도록 부른다
+          judge_slot (선택)                     판정 동시 실행 수를 제한하는 asyncio 세마포어
+          read_file(path) -> bytes | None (선택) 실행 전 작업 파일 읽기. 명령이 실행하는 파일을 Judge에 보여 준다
+        """
+        import asyncio
+
+        from simguard.models import SimulationBackend
+        from simguard.simulation.backends.execution_simulator import _fmt
+        from simguard.simulation.backends.run_files import run_files_text
+
+        simulator = self._manager._execution_simulator()
+        captured = [_capture(action) for action in actions]
+        results: list[dict] = []
+        read_file = getattr(session, "read_file", None)
+        for action in captured:
+            # 명령이 실행하는 파일의 내용은 실행 전에 읽는다 (실행이 파일을 지우거나 바꿀 수 있다).
+            run_files = await asyncio.to_thread(run_files_text, action.code or "", read_file) if read_file else ""
+            result = dict(await asyncio.to_thread(session.execute_action, action.tool_name, action.tool_arguments))
+            result["run_files"] = run_files
+            result.setdefault("fs_changes", [])
+            result.setdefault("network_status", "disabled")
+            results.append(result)
+
+        traces: list[SimulationTrace] = []
+        slot = getattr(session, "judge_slot", None)
+        for action, result in zip(captured, results):
+            result["agent_response"] = await simulator._predict_next_action(action, action.code or "", result)
+            if slot is not None:
+                async with slot:
+                    events, risk_score = await simulator._judge.judge(action, result)
+            else:
+                events, risk_score = await simulator._judge.judge(action, result)
+            trace = SimulationTrace(
+                action=action, backend_used=SimulationBackend.ISOLATED, simulated_output=_fmt(result),
+                security_events=events, risk_score=risk_score, execution_result=result,
+            )
+            trace.decision = self._controller.decide(risk_score)
+            traces.append(trace)
+
+        # 모두 허용되면 에이전트(타겟)가 실제 실행 결과를 받고 다음 응답을 내도록 한다. 판정에는 쓰지 않는다.
+        follow_up = getattr(session, "follow_up", None)
+        if follow_up is not None and all(trace.decision == Decision.ALLOW for trace in traces):
+            await follow_up([trace.execution_result for trace in traces])
+        return traces
+
     async def intercept_output(
         self,
         messages: Sequence[dict],
         output: dict | str,
         tools: Sequence[dict] | Mapping[str, Sequence[str]] | None = None,
-        shadow_executors: Mapping[str, ShadowToolExecutor] | None = None,
-        execution_session: object = None,
-        execution_session_factory: Callable[[], Awaitable[object]] | None = None,
+        tool_executors: Mapping[str, LiveToolExecutor] | None = None,
+        execution_environment: ExecutionEnvironment | None = None,
     ) -> InterceptionResult:
         """타겟 LLM의 출력 하나를 에이전트가 실행하거나 사용자에게 보내기 전에 평가한다.
 
@@ -286,6 +352,8 @@ class SimGuardAgentInterceptor:
           messages: 타겟이 LLM에 보낸 대화 (OpenAI 메시지 형식)
           output:   LLM의 출력 메시지 {"content", "tool_calls", "reasoning"} 또는 문자열
           tools:    타겟이 LLM에 준 도구 정의 목록, 또는 {도구 이름: 인자 이름 목록}
+          execution_environment: 에이전트가 코드를 실행하는 작업 파일 (simguard.ExecutionEnvironment).
+                    주면 코드·셸 행동을 그 파일이 든 Docker 컨테이너에서 실행해 본다.
 
         출력 하나는 Plan 하나이고, Simulation Manager가 Plan이 실행하려는 내용에 따라 한 경로로
         보낸다. 도구 호출은 ToolCallSimulator, 코드는 ExecutionSimulator, 행동 없이 할 일을 서술한
@@ -301,11 +369,9 @@ class SimGuardAgentInterceptor:
             tools = declared_tools({"tools": list(tools)})
         result = InterceptionResult()
         try:
-            for action in response_actions(list(messages), dict(output), tools, shadow_executors, descriptions):
-                if action.code and action.execution_session is None:
-                    if execution_session is None and execution_session_factory is not None:
-                        execution_session = await execution_session_factory()
-                    action = action.model_copy(update={"execution_session": execution_session})
+            for action in response_actions(list(messages), dict(output), tools, tool_executors, descriptions):
+                if execution_environment is not None:
+                    action = action.model_copy(update={"execution_environment": execution_environment})
                 trace = await self.intercept(action)
                 result.traces.append(trace)
                 result.risk_score = max(result.risk_score, float(trace.risk_score))
@@ -322,7 +388,7 @@ class SimGuardAgentInterceptor:
         base: dict,
         plan_text: str,
         tools: Mapping[str, Sequence[str]],
-        shadow_executor: ShadowToolExecutor | None,
+        live_executor: LiveToolExecutor | None,
     ) -> list[Action]:
         """Plan 내용을 Simulation Manager가 분류할 행동들로 나눈다."""
         code_in_plan = _code_in_plan(plan_text)
@@ -342,8 +408,8 @@ class SimGuardAgentInterceptor:
             elif captured.action_type == ActionType.TOOL_CALL:
                 if not code_in_plan:
                     tool_actions.append(captured)
-            elif arguments is not None and shadow_executor is not None:
-                tool_actions.append(action.model_copy(update={"shadow_executor": shadow_executor}))
+            elif arguments is not None and live_executor is not None:
+                tool_actions.append(action.model_copy(update={"live_executor": live_executor}))
             else:
                 tool_actions.append(action)
         if code_in_plan and not code_actions:
@@ -475,20 +541,11 @@ def _tool_descriptions(tools: Sequence[dict]) -> dict[str, str]:
     return descriptions
 
 
-def _target_plan(plan_text: str, user_request: str) -> AgentPlan:
-    return AgentPlan(
-        agent_role="Target agent",
-        agent_persona="general-purpose agent",
-        sub_queries=[plan_text],
-        research_focus=user_request,
-    )
-
-
 def _behavior_plan_action(parts: Sequence[str], user_request: str, conversation: str | None) -> Action:
     """실행되지 않는 Plan 텍스트를 BehaviorSimulator로 보낼 행동으로 만든다."""
     return Action(
         user_request=user_request,
-        agent_plan=_target_plan("\n\n".join(parts)[-_MAX_PLAN_TEXT:], user_request),
+        agent_plan="\n\n".join(parts)[-_MAX_PLAN_TEXT:],
         conversation=conversation,
         action_type=ActionType.CONVERSATIONAL,
     )
@@ -498,7 +555,7 @@ def response_actions(
     messages: list[dict],
     message: dict,
     tools: Mapping[str, Sequence[str]] | None = None,
-    shadow_executors: Mapping[str, ShadowToolExecutor] | None = None,
+    tool_executors: Mapping[str, LiveToolExecutor] | None = None,
     descriptions: Mapping[str, str] | None = None,
 ) -> list[Action]:
     """타겟 LLM의 출력 하나(Plan 하나)를 Simulation Manager가 라우팅할 행동으로 바꾼다.
@@ -511,7 +568,7 @@ def response_actions(
       허용된 도구·코드 실행 뒤의 텍스트 답변 -> 이미 판정한 행동의 결과이므로 판정하지 않음
     Plan의 텍스트와 reasoning은 따로 시뮬레이션하지 않고 행동의 agent_plan으로 붙는다.
     """
-    executors = shadow_executors or {}
+    executors = tool_executors or {}
     signatures = [f"{name}({', '.join(parameters)})" for name, parameters in (tools or {}).items()]
     messages = [item for item in messages if isinstance(item, dict)]
     user_positions = [index for index, item in enumerate(messages) if item.get("role") == "user"]
@@ -529,7 +586,7 @@ def response_actions(
     plan_text = "\n\n".join(part for part in (reasoning, text) if part)[-_MAX_PLAN_TEXT:]
     base = {
         "user_request": user_request,
-        "agent_plan": _target_plan(plan_text, user_request) if plan_text else None,
+        "agent_plan": plan_text or None,
         "available_tools": signatures,
         "conversation": conversation,
     }
@@ -544,18 +601,18 @@ def response_actions(
             function = call.get("function") or call.get("custom") or {}
             name = str(function.get("name") or call.get("name") or "unknown_tool")
             arguments = _tool_call_arguments(function.get("arguments", function.get("input")))
-            # shadow가 없는 SQL 도구 호출은 SimGuardAgent 내부 DB에서 실행해 본다.
-            shadow = executors.get(name) or internal_database_for(messages, descriptions, arguments)
+            # 연결부가 알려 준 실행기(에이전트 DB 등)가 없는 SQL 도구 호출은 SimGuardAgent 내부 DB에서 실행해 본다.
+            executor = executors.get(name) or internal_database_for(messages, descriptions, arguments)
             action = _capture(Action(
-                **base, tool_name=name, tool_arguments=arguments, shadow_executor=shadow,
+                **base, tool_name=name, tool_arguments=arguments, live_executor=executor,
                 tool_description=(descriptions or {}).get(name),
             ))
-            if action.shadow_executor is None and action.code is None:
+            if action.live_executor is None and action.code is None:
                 # 이 프로세스에 실제 도구가 있으면 GET 전용 모드로 실행해 본다. GET·HEAD가 아닌 요청이나
                 # 다른 부작용이 나오면 멈추고 내부 모델이 예상한다.
                 live = live_read_executor_for(name, arguments)
                 if live is not None:
-                    action = action.model_copy(update={"shadow_executor": live})
+                    action = action.model_copy(update={"live_executor": live})
             if action.code is None and action.action_type is None:
                 action = action.model_copy(update={"action_type": ActionType.TOOL_CALL})
             actions.append(action)
@@ -570,7 +627,7 @@ def response_actions(
         for action in SimGuardAgentInterceptor._plan_actions(base, text, tools, None):
             known_arguments = action.tool_arguments != {"plan": text}
             if action.tool_name in executors and action.code is None and action.action_type is None and known_arguments:
-                action = action.model_copy(update={"shadow_executor": executors[action.tool_name]})
+                action = action.model_copy(update={"live_executor": executors[action.tool_name]})
             actions.append(action)
         return actions
     if text and not tools and _FENCE_RE.search(text):

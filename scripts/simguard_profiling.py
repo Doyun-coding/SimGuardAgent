@@ -1,25 +1,20 @@
 """
-SimGuard 오버헤드 계측 (E3)
+실험용: SimGuardAgent 오버헤드 계측 (E3). 배포 패키지(simguard/)에는 들어가지 않는다.
 
-목적: 액션 1건을 방어하는 데 드는 지연(latency)과 추론 비용(token)을
-      단계별로 분해해 기록한다.
+행동 1건을 판정하는 데 든 지연과 LLM 호출 수·토큰·비용을 단계별로 기록한다.
+simguard 코드는 고치지 않고 바깥에서 감싼다 (install()).
+  - 내부 모델 클라이언트(simguard.llm_backends.make_backend_client)를 프록시로 감싸 모든 호출을 기록한다.
+  - 시뮬레이터·Judge·실행기 메서드를 감싸 단계(predict_result, predict_next_action, judge, live_exec_real)를 나눈다.
 
-설계 원칙
-  - 기본 비활성. SIMGUARD_PROFILE=1 일 때만 동작하며, 꺼져 있으면
-    래핑도 하지 않으므로 런타임 경로에 영향이 없다.
-  - LLM 호출은 전부 make_client() 가 만든 클라이언트를 지나가므로,
-    그 하나만 프록시로 감싸면 모든 judge/simulator 호출이 잡힌다.
-  - 단계 구분은 contextvar 로 전파한다. 호출부는 stage("...") 로 감싸기만
-    하면 되고, 그 안에서 일어난 LLM 호출이 자동으로 해당 단계에 귀속된다.
-
-사용:
+사용 (SIMGUARD_PROFILE=1 일 때만 동작):
     SIMGUARD_PROFILE=1 SIMGUARD_PROFILE_OUT=results/overhead.jsonl python ...
 
-  코드에서:
-    from simguard.instrumentation import action, stage
+    from scripts.simguard_profiling import install, action
+    install()                                     # SimGuardAgentInterceptor를 만들기 전에 부른다
     with action(benchmark="mcptox", item_id="3"):
-        with stage("shadow_exec"):
-            ...
+        await SimGuardAgentInterceptor().intercept_output(...)
+
+집계: python scripts/e3_overhead_report.py results/overhead.jsonl
 """
 from __future__ import annotations
 
@@ -212,3 +207,58 @@ def instrument(client):
         return _ClientProxy(client)
     except Exception:
         return client
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# simguard 바깥에서 감싸기
+# ─────────────────────────────────────────────────────────────────────────────
+
+# (모듈, 클래스, 메서드, 단계 이름)
+_STAGES = (
+    ("simguard.simulation.backends.tool_call_simulator", "ToolCallSimulator", "_predict_tool_result", "predict_result"),
+    ("simguard.simulation.backends.tool_call_simulator", "ToolCallSimulator", "_predict_next_action", "predict_next_action"),
+    ("simguard.simulation.backends.behavior_simulator", "BehaviorSimulator", "_simulate_plan", "predict_result"),
+    ("simguard.simulation.backends.execution_simulator", "ExecutionSimulator", "_predict", "predict_result"),
+    ("simguard.simulation.backends.execution_simulator", "ExecutionSimulator", "_predict_next_action", "predict_next_action"),
+    ("simguard.simulation.judges.tool_call_judge", "ToolCallJudge", "judge", "judge"),
+    ("simguard.simulation.judges.behavior_judge", "BehaviorJudge", "judge", "judge"),
+    ("simguard.simulation.judges.execution_judge", "ExecutionJudge", "judge", "judge"),
+    ("simguard.live_db", "DatabaseExecutor", "live_execute", "live_exec_real"),
+    ("simguard.internal_database", "InternalDatabase", "live_execute", "live_exec_real"),
+    ("simguard.live_http", "LiveReadExecutor", "live_execute", "live_exec_real"),
+)
+_installed = False
+
+
+def _with_stage(method, name):
+    import functools
+    import inspect
+
+    if inspect.iscoroutinefunction(method):
+        @functools.wraps(method)
+        async def wrapped(*args, **kwargs):
+            with stage(name):
+                return await method(*args, **kwargs)
+    else:
+        @functools.wraps(method)
+        def wrapped(*args, **kwargs):
+            with stage(name):
+                return method(*args, **kwargs)
+    return wrapped
+
+
+def install() -> None:
+    """SIMGUARD_PROFILE=1이면 simguard의 내부 모델 클라이언트와 단계 메서드를 감싼다. 여러 번 불러도 한 번만 감싼다."""
+    global _installed
+    if _installed or not enabled():
+        return
+    import importlib
+
+    import simguard.llm_backends as backends
+
+    make = backends.make_backend_client
+    backends.make_backend_client = lambda role=None: instrument(make(role))
+    for module, cls, method, name in _STAGES:
+        owner = getattr(importlib.import_module(module), cls)
+        setattr(owner, method, _with_stage(getattr(owner, method), name))
+    _installed = True

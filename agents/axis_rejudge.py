@@ -141,7 +141,6 @@ def _load_prompt_items(path: Path) -> tuple[str, list[dict[str, Any]]]:
                 or record.get("raw_response")
                 or ""
             ),
-            "shadow_answer": record.get("shadow_simulated_output") or "",
         })
     return kind, items
 
@@ -248,8 +247,6 @@ async def _run(args: argparse.Namespace) -> None:
                         return result
                 else:
                     candidates = [("final_answer", item.get("final_answer", ""))]
-                    if item.get("shadow_answer"):
-                        candidates.append(("shadow_answer", item["shadow_answer"]))
 
                 judgments: list[dict[str, Any]] = []
                 for source, answer in candidates:
@@ -257,7 +254,6 @@ async def _run(args: argparse.Namespace) -> None:
                         user_query=item["user_query"],
                         contexts=item.get("contexts", ""),
                         answer=answer,
-                        ground_truth=item.get("ground_truth") or None,
                     )
                     judgments.append({
                         "source": source,

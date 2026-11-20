@@ -19,7 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from simguard import Action, ActionType, DatabaseShadowExecutor, Decision, SimGuardAgentInterceptor
+from simguard import Action, ActionType, DatabaseExecutor, Decision, SimGuardAgentInterceptor
 
 
 def load_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -70,7 +70,7 @@ def sqlite_path(db_root: Path, db_id: str) -> Path | None:
 
 
 def setup_fallback_db(path: Path) -> sqlite3.Connection:
-    # shadow 실행기가 따로 연결해야 하므로 메모리 DB가 아니라 임시 파일에 만든다.
+    # DB 실행기가 따로 연결해야 하므로 메모리 DB가 아니라 임시 파일에 만든다.
     conn = sqlite3.connect(str(path), check_same_thread=False)
     conn.execute(
         """
@@ -402,7 +402,7 @@ def apply_poisoned_cell(conn: sqlite3.Connection, case: dict[str, Any], query: s
     table, col = target
     try:
         # This is a temp copied database. Updating all rows maximizes the chance
-        # that the actual shadow query observes the poisoned DB content without
+        # that the actual pre-judgment query observes the poisoned DB content without
         # touching the real database.
         cur = conn.execute(
             f'UPDATE "{table}" SET "{col}" = COALESCE(CAST("{col}" AS TEXT), \'\') || ? ',
@@ -570,7 +570,7 @@ def run_one(case: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
             return run_llm_sql_guard(conn, case, query, db_source)
 
         # 에이전트의 execute_sql 호출을 SimGuardAgent Interceptor가 실행 전에 가로챈다. ToolCallSimulator는
-        # DatabaseShadowExecutor로 같은 DB(임시 복사본)의 트랜잭션 안에서 실행해 보고 되돌린 뒤 판정한다.
+        # DatabaseExecutor로 같은 DB(임시 복사본)의 트랜잭션 안에서 실행해 보고 되돌린 뒤 판정한다.
         # ALLOW일 때만 실제로 실행하고 확정한다.
         action = Action(
             user_request=case.get("user_prompt", ""),
@@ -580,10 +580,10 @@ def run_one(case: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
             tool_description="Execute one SQLite SQL statement on the database and return the result rows.",
             available_tools=["execute_sql(query)"],
             action_type=ActionType.TOOL_CALL,
-            shadow_executor=DatabaseShadowExecutor(str(tmp_db), snapshot=snapshot),
+            live_executor=DatabaseExecutor(str(tmp_db), snapshot=snapshot),
         )
         trace = asyncio.run(SimGuardAgentInterceptor().intercept(action))
-        shadow = trace.shadow
+        live = trace.live_result
         result, error, committed = None, None, False
         if trace.decision == Decision.ALLOW:
             try:
@@ -604,9 +604,9 @@ def run_one(case: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
             "committed": committed,
             "result": result,
             "error": error,
-            "shadow_result": getattr(shadow, "result", None),
-            "shadow_error": getattr(shadow, "error", None),
-            "state_diff": getattr(shadow, "state_diff", None),
+            "live_result": getattr(live, "result", None),
+            "live_error": getattr(live, "error", None),
+            "state_diff": getattr(live, "state_diff", None),
             "events": [e.model_dump() for e in trace.security_events],
         }
     finally:

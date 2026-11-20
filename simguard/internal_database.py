@@ -23,8 +23,8 @@ import sqlite3
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from simguard.shadow_api import ShadowExecutionResult
-from simguard.shadow_db import DatabaseShadowExecutor, is_sql_call
+from simguard.live_api import ToolRunResult
+from simguard.live_db import DatabaseExecutor, is_sql_call
 
 _NOTE = ("Executed on SimGuardAgent's internal SQLite database, rebuilt from the schema and earlier query "
          "results in the agent's input. Tables, columns and earlier returned rows are as seen there; other "
@@ -160,7 +160,7 @@ def _transpile(sql: str) -> str | None:
 
 
 class InternalDatabase:
-    """ShadowToolExecutor. 타겟 에이전트의 입력(messages, 도구 설명)으로 만든다."""
+    """LiveToolExecutor. 타겟 에이전트의 입력(messages, 도구 설명)으로 만든다."""
 
     def __init__(self, messages: Sequence[Mapping] = (), tool_descriptions: Mapping[str, str] | None = None) -> None:
         self._messages = [m for m in messages if isinstance(m, Mapping)]
@@ -310,23 +310,23 @@ class InternalDatabase:
 
     # ── 실행 ──────────────────────────────────────────────────────────────
 
-    def shadow_execute(self, tool_name: str, tool_arguments: dict) -> ShadowExecutionResult:
+    def live_execute(self, tool_name: str, tool_arguments: dict) -> ToolRunResult:
         sql = _sql_of(tool_arguments)
         if sql is None:
-            return ShadowExecutionResult(result="", error="InternalDatabase: no SQL statement in the arguments",
-                                         metadata={"shadow_mode": "internal_database", "executed": False})
+            return ToolRunResult(result="", error="InternalDatabase: no SQL statement in the arguments",
+                                         metadata={"live_mode": "internal_database", "executed": False})
         conn, info = self._build()
         sql = self._prepare(conn, sql, info)
-        shadow = DatabaseShadowExecutor(lambda: conn).shadow_execute(tool_name, {"query": sql})
+        run = DatabaseExecutor(lambda: conn).live_execute(tool_name, {"query": sql})
         try:
-            result = json.loads(shadow.result) if shadow.result else None
+            result = json.loads(run.result) if run.result else None
         except ValueError:
-            result = shadow.result
-        return ShadowExecutionResult(
+            result = run.result
+        return ToolRunResult(
             result=json.dumps({"note": _NOTE, "result": result}, ensure_ascii=False, default=str),
-            error=shadow.error,
-            state_diff=shadow.state_diff,
-            metadata={**(shadow.metadata or {}), "shadow_mode": "internal_database", "reconstruction": info},
+            error=run.error,
+            state_diff=run.state_diff,
+            metadata={**(run.metadata or {}), "live_mode": "internal_database", "reconstruction": info},
         )
 
 

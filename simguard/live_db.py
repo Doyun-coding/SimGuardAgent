@@ -1,14 +1,14 @@
 """
-DatabaseShadowExecutor
+DatabaseExecutor
 
 DB 도구 호출을 실제 DB의 트랜잭션 안에서 실행해 결과와 상태 변화를 본 뒤 되돌린다(rollback).
 ToolCallSimulator는 이 결과를 LLM 예상 대신 도구 결과로 쓴다. 실제 DB에는 아무것도 남지 않는다.
 
-  DatabaseShadowExecutor("app.db")                          SQLite 파일
-  DatabaseShadowExecutor("postgresql://user@host/db")       SQLAlchemy URL (SQLAlchemy 필요)
-  DatabaseShadowExecutor(engine)                            SQLAlchemy Engine
-  DatabaseShadowExecutor(lambda: psycopg.connect(...))      DB-API 연결을 만드는 함수
-  DatabaseShadowExecutor("app.db", copy=True)               실제 DB를 판정 순간의 상태로 복사해 복사본에서 실행 (SQLite)
+  DatabaseExecutor("app.db")                          SQLite 파일
+  DatabaseExecutor("postgresql://user@host/db")       SQLAlchemy URL (SQLAlchemy 필요)
+  DatabaseExecutor(engine)                            SQLAlchemy Engine
+  DatabaseExecutor(lambda: psycopg.connect(...))      DB-API 연결을 만드는 함수
+  DatabaseExecutor("app.db", copy=True)               실제 DB를 판정 순간의 상태로 복사해 복사본에서 실행 (SQLite)
 
 보통은 protect(database=...)로 넘긴다. 그러면 SQL이 든 도구 호출을 이 실행기로 판정한다.
 
@@ -17,8 +17,8 @@ ToolCallSimulator는 이 결과를 LLM 예상 대신 도구 결과로 쓴다. �
 
 되돌릴 수 없는 문장은 실행하지 않는다
   MySQL·MariaDB·Oracle은 CREATE, ALTER, DROP, TRUNCATE, RENAME을 실행하면 트랜잭션과 상관없이 바로
-  확정한다. shadow에서 실행하면 실제 DB가 바뀌므로, 이런 문장은 실행하지 않고 None을 돌려준다.
-  그러면 ToolCallSimulator가 shadow가 없을 때처럼 내부 모델로 결과를 예상해 판정한다.
+  확정한다. 실행하면 실제 DB가 바뀌므로, 이런 문장은 실행하지 않고 None을 돌려준다.
+  그러면 ToolCallSimulator가 실행기가 없을 때처럼 내부 모델로 결과를 예상해 판정한다.
 """
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ from pathlib import Path
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from simguard.shadow_api import ShadowExecutionResult
+from simguard.live_api import ToolRunResult
 
 _SQL_KEYS = ("query", "sql", "statement", "sql_query", "command")
 _MAX_ROWS = 50
@@ -50,7 +50,7 @@ def is_sql_call(arguments: Any) -> bool:
     return any(isinstance(value, str) and _SQL.match(value) for value in arguments.values())
 
 
-class DatabaseShadowExecutor:
+class DatabaseExecutor:
     def __init__(
         self,
         database: Any,
@@ -78,7 +78,7 @@ class DatabaseShadowExecutor:
     def _sqlite_copy(self, source: sqlite3.Connection) -> tuple[Any, str, str]:
         """판정 순간의 DB를 임시 파일로 복사하고 복사본 연결을 돌려준다. source는 닫는다.
         backup()은 다른 연결이 쓰는 중이어도 일관된 상태를 복사한다."""
-        fd, copy_path = tempfile.mkstemp(prefix="simguard_shadow_", suffix=".sqlite")
+        fd, copy_path = tempfile.mkstemp(prefix="simguard_live_", suffix=".sqlite")
         os.close(fd)
         try:
             target = sqlite3.connect(copy_path, check_same_thread=False)
@@ -210,21 +210,21 @@ class DatabaseShadowExecutor:
             }
         return {} if before == after else {"before": before, "after": after}
 
-    def shadow_execute(self, tool_name: str, tool_arguments: dict) -> ShadowExecutionResult:
+    def live_execute(self, tool_name: str, tool_arguments: dict) -> ToolRunResult:
         arguments = dict(tool_arguments or {})
         sql = None if self._run is not None else self._sql(arguments)
         if self._run is None and sql is None:
-            return ShadowExecutionResult(
-                result="", error="DatabaseShadowExecutor: no SQL statement in the arguments and no run function",
-                metadata={"shadow_mode": "transaction_rollback", "executed": False},
+            return ToolRunResult(
+                result="", error="DatabaseExecutor: no SQL statement in the arguments and no run function",
+                metadata={"live_mode": "transaction_rollback", "executed": False},
             )
         conn, kind, dialect = self._open()
         mode = "copy" if id(conn) in self._copies else "transaction_rollback"
-        metadata = {"shadow_mode": mode, "dialect": dialect, "executed": False}
+        metadata = {"live_mode": mode, "dialect": dialect, "executed": False}
         try:
             if sql is not None and dialect in _IMPLICIT_COMMIT_DIALECTS and _IMPLICIT_COMMIT_SQL.match(sql):
                 # 실행하면 실제 DB에 바로 확정되므로 실행하지 않는다. None을 돌려주면 ToolCallSimulator가
-                # shadow 없이 내부 모델로 결과를 예상한다.
+                # 실행하지 않고 내부 모델로 결과를 예상한다.
                 return None
             before = self._state(conn, kind)
             try:
@@ -237,7 +237,7 @@ class DatabaseShadowExecutor:
             diff = self._diff(before, after)
             if isinstance(result, dict) and "rows_affected" in result:
                 diff = {"rows_affected": result["rows_affected"], **diff}
-            return ShadowExecutionResult(
+            return ToolRunResult(
                 result=result if isinstance(result, str) else json.dumps(result, ensure_ascii=False, default=str),
                 error=error,
                 state_diff=json.dumps(diff, ensure_ascii=False, default=str)[:4000],

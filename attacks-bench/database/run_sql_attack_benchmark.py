@@ -14,7 +14,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from simguard import SimGuardAgentInterceptor, TransactionRollbackDBExecutor
+from simguard import Action, ActionType, DatabaseExecutor, Decision, SimGuardAgentInterceptor
 
 ATTACK_FILES = [
     "sql_attack.csv",
@@ -117,6 +117,13 @@ def query_runner(conn: sqlite3.Connection, tool_name: str, args: dict) -> Any:
     return {"columns": columns, "rows": rows[:50], "row_count": len(rows)}
 
 
+def clone(conn: sqlite3.Connection) -> sqlite3.Connection:
+    """판정할 때마다 그 순간의 DB를 새 메모리 DB로 복사한다. DatabaseExecutor는 받은 연결을 닫는다."""
+    copy = sqlite3.connect(":memory:")
+    conn.backup(copy)
+    return copy
+
+
 def snapshot(conn: sqlite3.Connection) -> dict:
     rows = conn.execute("SELECT ID, destination, departure, flight_date, price, passenger_email FROM flight ORDER BY ID").fetchall()
     return {"flight": rows}
@@ -153,7 +160,8 @@ async def run(args: argparse.Namespace) -> dict:
         cases = cases[: args.limit]
 
     conn = setup_db()
-    executor = TransactionRollbackDBExecutor(conn, query_runner, diff_runner=snapshot)
+    # 판정 전에 판정 순간의 DB 복사본에서 실행해 본다. ALLOW일 때만 실제로 실행하고 확정한다.
+    executor = DatabaseExecutor(lambda: clone(conn), run=query_runner, snapshot=snapshot)
     interceptor = SimGuardAgentInterceptor()
 
     outputs = []
@@ -166,25 +174,35 @@ async def run(args: argparse.Namespace) -> dict:
                 outputs.append({**case, "decision": "ERROR", "risk_score": 1.0, "committed": False, "result": None, "error": f"{type(exc).__name__}: {exc}"})
             continue
 
-        guarded = await interceptor.guard_shadow_tool_call(
+        trace = await interceptor.intercept(Action(
             user_request=case["question"],
             tool_name="execute_sql",
             tool_arguments={"query": case["query"]},
-            shadow_executor=executor,
             tool_category="database",
-        )
+            action_type=ActionType.TOOL_CALL,
+            live_executor=executor,
+        ))
+        result, error, committed = None, None, False
+        if trace.decision == Decision.ALLOW:
+            try:
+                result = query_runner(conn, "execute_sql", {"query": case["query"]})
+                conn.commit()
+                committed = True
+            except Exception as exc:
+                error = f"{type(exc).__name__}: {exc}"
+        live = trace.live_result
         outputs.append({
             **case,
-            "decision": getattr(guarded.trace.decision, "value", str(guarded.trace.decision)),
-            "risk_score": guarded.trace.risk_score,
-            "committed": guarded.committed,
-            "result": guarded.result,
-            "error": guarded.error,
-            "shadow_error": guarded.shadow.error,
-            "state_diff": guarded.shadow.state_diff,
-            "events": [e.model_dump() for e in guarded.trace.security_events],
+            "decision": trace.decision.value,
+            "risk_score": trace.risk_score,
+            "committed": committed,
+            "result": result,
+            "error": error,
+            "live_error": getattr(live, "error", None),
+            "state_diff": getattr(live, "state_diff", None),
+            "events": [e.model_dump() for e in trace.security_events],
         })
-        print(f"[{case['id']}] {outputs[-1]['decision']} risk={guarded.trace.risk_score:.2f} label={case['label']} query={case['query'][:80]}")
+        print(f"[{case['id']}] {outputs[-1]['decision']} risk={trace.risk_score:.2f} label={case['label']} query={case['query'][:80]}")
 
     total = len(outputs)
     blocked = sum(o["decision"] == "BLOCK" for o in outputs)
