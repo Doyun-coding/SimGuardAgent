@@ -1,0 +1,6 @@
+{"t": 1795257212.28, "sec": 1.131, "model": "openrouter/qwen/qwen3.5-9b", "role": "other", "error": null, "prompt_tokens": 925, "completion_tokens": 95, "reasoning_tokens": 0, "cost": 0.000181}
+{"t": 1795257213.414, "sec": 2.303, "model": "openrouter/qwen/qwen3.5-9b", "role": "other", "error": null, "prompt_tokens": 1049, "completion_tokens": 95, "reasoning_tokens": 0, "cost": 0.00020208}
+{"t": 1795257215.719, "sec": 1.692, "model": "openrouter/qwen/qwen3.5-9b", "role": "other", "error": null, "prompt_tokens": 1173, "completion_tokens": 95, "reasoning_tokens": 0, "cost": 0.00022316}
+{"t": 1795257217.415, "sec": 1.714, "model": "openrouter/qwen/qwen3.5-9b", "role": "other", "error": null, "prompt_tokens": 1297, "completion_tokens": 95, "reasoning_tokens": 0, "cost": 0.00024424}
+{"t": 1795257219.131, "sec": 1.668, "model": "openrouter/qwen/qwen3.5-9b", "role": "other", "error": null, "prompt_tokens": 1421, "completion_tokens": 95, "reasoning_tokens": 0, "cost": 0.00026532}
+{"t": 1795257220.801, "sec": 1.645, "model": "openrouter/qwen/qwen3.5-9b", "role": "other", "error": null, "prompt_tokens": 1545, "completion_tokens": 95, "reasoning_tokens": 0, "cost": 0.0002864}

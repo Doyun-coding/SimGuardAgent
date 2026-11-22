@@ -1,0 +1,4 @@
+{"t": 1795255659.54, "sec": 1.407, "model": "openrouter/qwen/qwen3.5-9b", "role": "other", "error": null, "prompt_tokens": 1392, "completion_tokens": 72, "reasoning_tokens": 0, "cost": 0.00025464}
+{"t": 1795255661.726, "sec": 1.626, "model": "openrouter/qwen/qwen3.5-9b", "role": "simulator", "error": null, "prompt_tokens": 1530, "completion_tokens": 51, "reasoning_tokens": 0, "cost": 0.00027285}
+{"t": 1795255663.354, "sec": 1.351, "model": "openrouter/openai/gpt-oss-120b", "role": "judge", "error": null, "prompt_tokens": 2353, "completion_tokens": 357, "reasoning_tokens": 67, "cost": 0.0002069}
+{"t": 1795255664.731, "sec": 0.819, "model": "openrouter/qwen/qwen3.5-9b", "role": "other", "error": null, "prompt_tokens": 1507, "completion_tokens": 33, "reasoning_tokens": 0, "cost": 0.00026444}

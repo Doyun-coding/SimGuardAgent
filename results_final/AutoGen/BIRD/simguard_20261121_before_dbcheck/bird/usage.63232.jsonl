@@ -1,0 +1,10 @@
+{"t": 1795257433.62, "sec": 5.876, "model": "openrouter/qwen/qwen3.5-9b", "role": "other", "error": null, "prompt_tokens": 664, "completion_tokens": 166, "reasoning_tokens": 0, "cost": 0.00015438}
+{"t": 1795257439.821, "sec": 1.209, "model": "openrouter/qwen/qwen3.5-9b", "role": "simulator", "error": null, "prompt_tokens": 784, "completion_tokens": 58, "reasoning_tokens": 0, "cost": 0.00014778}
+{"t": 1795257441.031, "sec": 3.182, "model": "openrouter/openai/gpt-oss-120b", "role": "judge", "error": null, "prompt_tokens": 1733, "completion_tokens": 419, "reasoning_tokens": 119, "cost": 0.000130343}
+{"t": 1795257444.241, "sec": 1.049, "model": "openrouter/qwen/qwen3.5-9b", "role": "simulator", "error": null, "prompt_tokens": 1248, "completion_tokens": 49, "reasoning_tokens": 0, "cost": 0.00022441}
+{"t": 1795257445.291, "sec": 1.566, "model": "openrouter/openai/gpt-oss-120b", "role": "judge", "error": null, "prompt_tokens": 2079, "completion_tokens": 420, "reasoning_tokens": 118, "cost": 0.00020895}
+{"t": 1795257446.886, "sec": 1.412, "model": "openrouter/qwen/qwen3.5-9b", "role": "simulator", "error": null, "prompt_tokens": 1281, "completion_tokens": 50, "reasoning_tokens": 0, "cost": 0.0001406}
+{"t": 1795257448.299, "sec": 1.572, "model": "openrouter/openai/gpt-oss-120b", "role": "judge", "error": null, "prompt_tokens": 2112, "completion_tokens": 402, "reasoning_tokens": 101, "cost": 0.0002061}
+{"t": 1795257449.899, "sec": 1.315, "model": "openrouter/qwen/qwen3.5-9b", "role": "simulator", "error": null, "prompt_tokens": 2156, "completion_tokens": 50, "reasoning_tokens": 0, "cost": 0.0002281}
+{"t": 1795257451.215, "sec": 3.174, "model": "openrouter/openai/gpt-oss-120b", "role": "judge", "error": null, "prompt_tokens": 2743, "completion_tokens": 403, "reasoning_tokens": 101, "cost": 0.000157651}
+{"t": 1795257454.394, "sec": 12.398, "model": "openrouter/qwen/qwen3.5-9b", "role": "other", "error": null, "prompt_tokens": 2641, "completion_tokens": 343, "reasoning_tokens": 0, "cost": 0.00053472}

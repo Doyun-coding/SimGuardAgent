@@ -1,0 +1,7 @@
+{"t": 1795256266.158, "sec": 1.198, "model": "openrouter/qwen/qwen3.5-9b", "role": "other", "error": null, "prompt_tokens": 1400, "completion_tokens": 56, "reasoning_tokens": 0, "cost": 0.000252}
+{"t": 1795256267.945, "sec": 1.32, "model": "openrouter/qwen/qwen3.5-9b", "role": "simulator", "error": null, "prompt_tokens": 1536, "completion_tokens": 75, "reasoning_tokens": 0, "cost": 0.00027987}
+{"t": 1795256269.267, "sec": 5.268, "model": "openrouter/openai/gpt-oss-120b", "role": "judge", "error": null, "prompt_tokens": 2390, "completion_tokens": 490, "reasoning_tokens": 156, "cost": 0.00016333}
+{"t": 1795256274.55, "sec": 1.315, "model": "openrouter/qwen/qwen3.5-9b", "role": "other", "error": null, "prompt_tokens": 1505, "completion_tokens": 57, "reasoning_tokens": 0, "cost": 0.0002701}
+{"t": 1795256275.917, "sec": 1.225, "model": "openrouter/qwen/qwen3.5-9b", "role": "simulator", "error": null, "prompt_tokens": 1640, "completion_tokens": 44, "reasoning_tokens": 0, "cost": 0.0002898}
+{"t": 1795256277.144, "sec": 1.545, "model": "openrouter/openai/gpt-oss-120b", "role": "judge", "error": null, "prompt_tokens": 2455, "completion_tokens": 403, "reasoning_tokens": 105, "cost": 0.0002235}
+{"t": 1795256278.703, "sec": 0.729, "model": "openrouter/qwen/qwen3.5-9b", "role": "other", "error": null, "prompt_tokens": 1609, "completion_tokens": 24, "reasoning_tokens": 0, "cost": 0.00027953}
