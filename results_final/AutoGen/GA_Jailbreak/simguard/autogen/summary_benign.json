@@ -1,0 +1,11 @@
+{
+  "benchmark": "GA_Jailbreak",
+  "label": "benign",
+  "mode": "simguard",
+  "total": 1400,
+  "blocked": 44,
+  "judge_errors": 2,
+  "errors": 0,
+  "model": "openrouter/qwen/qwen3.5-9b",
+  "judge": "openrouter/openai/gpt-oss-120b"
+}

@@ -1,0 +1,50 @@
+Running AgentDojo suite=workspace model=openai-compatible defense=none attack=tool_knowledge
+Traceback (most recent call last):
+  File "C:\Users\inktr\Desktop\대학원\01.학부연구생\01.연구\SimGuardAgent\attacks-bench\agentdojo_adapter\agentdojo_adapter.py", line 2177, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\inktr\Desktop\대학원\01.학부연구생\01.연구\SimGuardAgent\attacks-bench\agentdojo_adapter\agentdojo_adapter.py", line 2166, in main
+    results = run_benchmark(args)
+  File "C:\Users\inktr\Desktop\대학원\01.학부연구생\01.연구\SimGuardAgent\attacks-bench\agentdojo_adapter\agentdojo_adapter.py", line 1936, in run_benchmark
+    result = benchmark_suite_with_injections(
+        pipeline,
+    ...<6 lines>...
+        benchmark_version=args.benchmark_version,
+    )
+  File "C:\Users\inktr\Desktop\대학원\01.학부연구생\01.연구\SimGuardAgent\.venv\Lib\site-packages\agentdojo\benchmark.py", line 203, in benchmark_suite_with_injections
+    successful, _ = run_task_without_injection_tasks(
+                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        suite, agent_pipeline, injection_task, logdir, force_rerun, benchmark_version
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\inktr\Desktop\대학원\01.학부연구생\01.연구\SimGuardAgent\.venv\Lib\site-packages\agentdojo\benchmark.py", line 283, in run_task_without_injection_tasks
+    utility, security = suite.run_task_with_pipeline(agent_pipeline, task, injection_task=None, injections={})
+                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\inktr\Desktop\대학원\01.학부연구생\01.연구\SimGuardAgent\.venv\Lib\site-packages\agentdojo\task_suite\task_suite.py", line 386, in run_task_with_pipeline
+    _, _, task_environment, messages, _ = agent_pipeline.query(prompt, runtime, task_environment)
+                                          ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\inktr\Desktop\대학원\01.학부연구생\01.연구\SimGuardAgent\.venv\Lib\site-packages\agentdojo\agent_pipeline\agent_pipeline.py", line 178, in query
+    query, runtime, env, messages, extra_args = element.query(query, runtime, env, messages, extra_args)
+                                                ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\inktr\Desktop\대학원\01.학부연구생\01.연구\SimGuardAgent\.venv\Lib\site-packages\agentdojo\agent_pipeline\tool_execution.py", line 155, in query
+    query, runtime, env, messages, extra_args = element.query(query, runtime, env, messages, extra_args)
+                                                ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\inktr\Desktop\대학원\01.학부연구생\01.연구\SimGuardAgent\.venv\Lib\site-packages\agentdojo\agent_pipeline\llms\openai_llm.py", line 201, in query
+    output = _openai_to_assistant_message(completion.choices[0].message)
+  File "C:\Users\inktr\Desktop\대학원\01.학부연구생\01.연구\SimGuardAgent\.venv\Lib\site-packages\agentdojo\agent_pipeline\llms\openai_llm.py", line 128, in _openai_to_assistant_message
+    tool_calls = [_openai_to_tool_call(tool_call) for tool_call in message.tool_calls]
+                  ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "C:\Users\inktr\Desktop\대학원\01.학부연구생\01.연구\SimGuardAgent\.venv\Lib\site-packages\agentdojo\agent_pipeline\llms\openai_llm.py", line 115, in _openai_to_tool_call
+    args=json.loads(tool_call.function.arguments),
+         ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\inktr\AppData\Local\Python\pythoncore-3.14-64\Lib\json\__init__.py", line 352, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "C:\Users\inktr\AppData\Local\Python\pythoncore-3.14-64\Lib\json\decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\inktr\AppData\Local\Python\pythoncore-3.14-64\Lib\json\decoder.py", line 361, in raw_decode
+    obj, end = self.scan_once(s, idx)
+               ~~~~~~~~~~~~~~^^^^^^^^
+json.decoder.JSONDecodeError: Unterminated string starting at: line 1 column 87 (char 86)

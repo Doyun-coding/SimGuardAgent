@@ -1,0 +1,16 @@
+{
+  "agent": "autogen",
+  "mode": "none",
+  "split": "test_public",
+  "verdicts": {},
+  "seconds": 742,
+  "tasks": {
+    "benign": {
+      "status": "error",
+      "samples": 176,
+      "samples_with_simguard_block": 0,
+      "sample_errors": 1,
+      "metrics": {}
+    }
+  }
+}

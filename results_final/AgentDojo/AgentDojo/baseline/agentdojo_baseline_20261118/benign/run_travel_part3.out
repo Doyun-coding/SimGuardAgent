@@ -1,0 +1,3 @@
+Running AgentDojo suite=travel model=openai-compatible defense=none attack=None
+Average utility: 60.00%
+Summary written to: runs/agentdojo_baseline_20261118/benign/travel_part3.json

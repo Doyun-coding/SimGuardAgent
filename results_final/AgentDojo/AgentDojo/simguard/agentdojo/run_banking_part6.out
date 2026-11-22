@@ -1,0 +1,4 @@
+Running AgentDojo suite=banking model=openai-compatible defense=simguard attack=tool_knowledge
+Average utility: 100.00%
+ASR / injection success: 0.00%
+Summary written to: runs/full_20261121/agentdojo/banking_part6.json

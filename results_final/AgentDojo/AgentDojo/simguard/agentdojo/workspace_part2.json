@@ -1,0 +1,23 @@
+{
+  "agent": "agentdojo",
+  "benchmark": "workspace",
+  "suites": [
+    "workspace"
+  ],
+  "mode": "simguard",
+  "label": "all",
+  "defense": "simguard",
+  "attack": "tool_knowledge",
+  "benchmark_version": "v1.2.2",
+  "limit": null,
+  "workers": 1,
+  "model": "openai-compatible",
+  "model_id": "openrouter/qwen/qwen3.5-9b",
+  "openai_base_url": "https://api.ssunlp.co.kr/v1",
+  "logdir": "runs\\full_20261121\\agentdojo\\logs_workspace",
+  "num_cases": 56,
+  "utility_success": 43,
+  "utility_rate": 0.7678571428571429,
+  "injection_success": 0,
+  "asr": 0.0
+}

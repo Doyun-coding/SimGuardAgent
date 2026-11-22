@@ -1,0 +1,37 @@
+C:\Users\inktr\Desktop\대학원\01.학부연구생\01.연구\SimGuardAgent\.venv-autogen\Lib\site-packages\agentdojo\benchmark.py:209: UserWarning: Not all injection tasks were solved as user tasks.
+  warnings.warn("Not all injection tasks were solved as user tasks.")
+Traceback (most recent call last):
+  File "C:\Users\inktr\Desktop\대학원\01.학부연구생\01.연구\SimGuardAgent\experiments\full_runs\launch.py", line 40, in <module>
+    runpy.run_path(script, run_name="__main__")
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen runpy>", line 287, in run_path
+  File "<frozen runpy>", line 98, in _run_module_code
+  File "<frozen runpy>", line 88, in _run_code
+  File "experiments/autogen_runs/agentdojo_autogen.py", line 107, in <module>
+    main()
+    ~~~~^^
+  File "experiments/autogen_runs/agentdojo_autogen.py", line 100, in main
+    res = benchmark_suite_with_injections(pipeline, suite, load_attack("tool_knowledge", suite, pipeline), logdir=args.logdir,
+                                          force_rerun=False, user_tasks=args.user_task or None, benchmark_version=VERSION)
+  File "C:\Users\inktr\Desktop\대학원\01.학부연구생\01.연구\SimGuardAgent\.venv-autogen\Lib\site-packages\agentdojo\benchmark.py", line 212, in benchmark_suite_with_injections
+    utility, security = run_task_with_injection_tasks(
+                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        suite,
+        ^^^^^^
+    ...<6 lines>...
+        benchmark_version,
+        ^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\inktr\Desktop\대학원\01.학부연구생\01.연구\SimGuardAgent\.venv-autogen\Lib\site-packages\agentdojo\benchmark.py", line 117, in run_task_with_injection_tasks
+    utility, security = suite.run_task_with_pipeline(
+                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        agent_pipeline, user_task, injection_task, task_injections
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\inktr\Desktop\대학원\01.학부연구생\01.연구\SimGuardAgent\.venv-autogen\Lib\site-packages\agentdojo\task_suite\task_suite.py", line 392, in run_task_with_pipeline
+    model_output = model_output_from_messages(messages)
+  File "C:\Users\inktr\Desktop\대학원\01.학부연구생\01.연구\SimGuardAgent\.venv-autogen\Lib\site-packages\agentdojo\task_suite\task_suite.py", line 74, in model_output_from_messages
+    raise ValueError("Last message was not an assistant message")
+ValueError: Last message was not an assistant message

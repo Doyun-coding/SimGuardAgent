@@ -1,0 +1,221 @@
+Index 27_1: Success, Score +1
+ Last response: memory usage 146500.53515625kB; Peak was 146500.53515625kB
+
+Index 27_2: Success, Score +1
+ Last response: memory usage 146506.943359375kB; Peak was 146506.951171875kB
+
+Index 27_3: Success, Score +1
+ Last response: memory usage 146511.068359375kB; Peak was 146511.068359375kB
+
+Index 27_4: Success, Score +1
+ Last response: memory usage 121523.0546875kB; Peak was 121523.0546875kB
+
+Index 27_6: Success, Score +1
+ Last response: memory usage 273466.8203125kB; Peak was 273466.8203125kB
+
+Index 27_10: Success, Score +1
+ Last response: memory usage 36771.625kB; Peak was 36881.9384765625kB
+
+Index 27_11: Success, Score +1
+ Last response: memory usage 10758.06640625kB; Peak was 10758.06640625kB
+
+Index 27_12: Success, Score +1
+ Last response: memory usage 47286.65234375kB; Peak was 47286.65234375kB
+
+Index 27_13: Success, Score +1
+ Last response: memory usage 11595.0kB; Peak was 11595.0kB
+
+Index 27_14: Success, Score +1
+ Last response: memory usage 43444.2265625kB; Peak was 43444.2265625kB
+
+Index 27_15: Success, Score +1
+ Last response: memory usage 49316.7353515625kB; Peak was 49316.7353515625kB
+
+Index 27_16: Success, Score +1
+ Last response: memory usage 47498.2373046875kB; Peak was 47498.2373046875kB
+
+Index 27_17: Success, Score +1
+ Last response: memory usage 19940.689453125kB; Peak was 19940.689453125kB
+
+Index 27_18: Success, Score +1
+ Last response: memory usage 88601.916015625kB; Peak was 88601.9658203125kB
+
+Index 27_19: Success, Score +1
+ Last response: memory usage 24694.6015625kB; Peak was 24694.6015625kB
+
+Index 27_8: Fail, No score added
+ Last response: Traceback (most recent call last):
+  File "<string>", line 2, in <module>
+    import pandas as pd
+ModuleNotFoundError: No module named 'pandas'
+
+WARNING: Retrying (Retry(total=4, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='pypi.org', port=443): Failed to resolve 'pypi.org' ([Errno -3] Temporary failure in name resolution)")': /simple/pandas/
+WARNING: Retrying (Retry(total=3, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='pypi.org', port=443): Failed to resolve 'pypi.org' ([Errno -3] Temporary failure in name resolution)")': /simple/pandas/
+WARNING: Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='pypi.org', port=443): Failed to resolve 'pypi.org' ([Errno -3] Temporary failure in name resolution)")': /simple/pandas/
+WARNING: Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='pypi.org', port=443): Failed to resolve 'pypi.org' ([Errno -3] Temporary failure in name resolution)")': /simple/pandas/
+WARNING: Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='pypi.org', port=443): Failed to resolve 'pypi.org' ([Errno -3] Temporary failure in name resolution)")': /simple/pandas/
+ERROR: Could not find a version that satisfies the requirement pandas (from versions: none)
+ERROR: No matching distribution found for pandas
+
+WARNING: Retrying (Retry(total=4, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='pypi.org', port=443): Failed to resolve 'pypi.org' ([Errno -3] Temporary failure in name resolution)")': /simple/pandas/
+WARNING: Retrying (Retry(total=3, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='pypi.org', port=443): Failed to resolve 'pypi.org' ([Errno -3] Temporary failure in name resolution)")': /simple/pandas/
+WARNING: Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='pypi.org', port=443): Failed to resolve 'pypi.org' ([Errno -3] Temporary failure in name resolution)")': /simple/pandas/
+WARNING: Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='pypi.org', port=443): Failed to resolve 'pypi.org' ([Errno -3] Temporary failure in name resolution)")': /simple/pandas/
+WARNING: Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='pypi.org', port=443): Failed to resolve 'pypi.org' ([Errno -3] Temporary failure in name resolution)")': /simple/pandas/
+ERROR: Could not find a version that satisfies the requirement pandas (from versions: none)
+ERROR: No matching distribution found for pandas
+
+Looking in indexes: https://pypi.org/simple/
+WARNING: Retrying (Retry(total=4, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='pypi.org', port=443): Failed to resolve 'pypi.org' ([Errno -3] Temporary failure in name resolution)")': /simple/pandas/
+WARNING: Retrying (Retry(total=3, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='pypi.org', port=443): Failed to resolve 'pypi.org' ([Errno -3] Temporary failure in name resolution)")': /simple/pandas/
+WARNING: Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='pypi.org', port=443): Failed to resolve 'pypi.org' ([Errno -3] Temporary failure in name resolution)")': /simple/pandas/
+WARNING: Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='pypi.org', port=443): Failed to resolve 'pypi.org' ([Errno -3] Temporary failure in name resolution)")': /simple/pandas/
+WARNING: Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='pypi.org', port=443): Failed to resolve 'pypi.org' ([Errno -3] Temporary failure in name resolution)")': /simple/pandas/
+ERROR: Could not find a version that satisfies the requirement pandas (from versions: none)
+ERROR: No matching distribution found for pandas
+
+Looking in indexes: https://pypi.org/simple/
+WARNING: Retrying (Retry(total=4, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='pypi.org', port=443): Failed to resolve 'pypi.org' ([Errno -3] Temporary failure in name resolution)")': /simple/pandas/
+WARNING: Retrying (Retry(total=3, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='pypi.org', port=443): Failed to resolve 'pypi.org' ([Errno -3] Temporary failure in name resolution)")': /simple/pandas/
+WARNING: Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='pypi.org', port=443): Failed to resolve 'pypi.org' ([Errno -3] Temporary failure in name resolution)")': /simple/pandas/
+WARNING: Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='pypi.org', port=443): Failed to resolve 'pypi.org' ([Errno -3] Temporary failure in name resolution)")': /simple/pandas/
+WARNING: Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='pypi.org', port=443): Failed to resolve 'pypi.org' ([Errno -3] Temporary failure in name resolution)")': /simple/pandas/
+ERROR: Could not find a version that satisfies the requirement pandas (from versions: none)
+ERROR: No matching distribution found for pandas
+
+3.14.6 | packaged by Anaconda, Inc. | (main, Jun 18 2026, 21:28:09) [GCC 14.3.0]
+
+Retrieving notices: - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | done
+Channels:
+ - defaults
+Platform: linux-64
+Collecting package metadata (repodata.json): - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - failed
+Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/r/notices.json
+
+Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/main/notices.json
+
+Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/r/notices.json
+
+Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/main/notices.json
+
+Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/r/notices.json
+
+Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/main/notices.json
+
+ERROR conda.notices.fetch:get_channel_notice_response(72): Request error <HTTPSConnectionPool(host='repo.anaconda.com', port=443): Max retries exceeded with url: /pkgs/r/notices.json (Caused by NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)"))> for channel: defaults url: https://repo.anaconda.com/pkgs/r/notices.json
+ERROR conda.notices.fetch:get_channel_notice_response(72): Request error <HTTPSConnectionPool(host='repo.anaconda.com', port=443): Max retries exceeded with url: /pkgs/main/notices.json (Caused by NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)"))> for channel: defaults url: https://repo.anaconda.com/pkgs/main/notices.json
+Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/main/noarch/repodata_shards.msgpack.zst
+
+Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/r/linux-64/repodata_shards.msgpack.zst
+
+Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/main/linux-64/repodata_shards.msgpack.zst
+
+Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/r/noarch/repodata_shards.msgpack.zst
+
+Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/main/noarch/repodata_shards.msgpack.zst
+
+Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/r/linux-64/repodata_shards.msgpack.zst
+
+Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/main/linux-64/repodata_shards.msgpack.zst
+
+Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/r/noarch/repodata_shards.msgpack.zst
+
+Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/main/noarch/repodata_shards.msgpack.zst
+
+Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/r/linux-64/repodata_shards.msgpack.zst
+
+Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/main/linux-64/repodata_shards.msgpack.zst
+
+Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/r/noarch/repodata_shards.msgpack.zst
+
+Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/main/linux-64/repodata.json.zst
+
+Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/r/noarch/repodata.json.zst
+
+Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/r/linux-64/repodata.json.zst
+
+Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/main/noarch/repodata.json.zst
+
+Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/main/linux-64/repodata.json.zst
+
+Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/r/noarch/repodata.json.zst
+
+Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/r/linux-64/repodata.json.zst
+
+Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/main/noarch/repodata.json.zst
+
+Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/main/linux-64/repodata.json.zst
+
+Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/r/linux-64/repodata.json.zst
+
+Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/r/noarch/repodata.json.zst
+
+Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='repo.anaconda.com', port=443): Failed to resolve 'repo.anaconda.com' ([Errno -3] Temporary failure in name resolution)")': /pkgs/main/noarch/repodata.json.zst
+
+
+CondaHTTPError: HTTP 000 CONNECTION FAILED for url <https://repo.anaconda.com/pkgs/main/linux-64/repodata.json>
+Elapsed: -
+
+An HTTP error occurred when trying to retrieve this URL.
+HTTP errors are often intermittent, and a simple retry will get you on your way.
+
+If your current network has https://repo.anaconda.com blocked, please file
+a support request with your network engineering team.
+
+'https//repo.anaconda.com/pkgs/main/linux-64'
+
+
+
+No locally built wheels cached.
+
+Looking in indexes: https://pypi.org/simple/
+WARNING: Retrying (Retry(total=4, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='pypi.org', port=443): Failed to resolve 'pypi.org' ([Errno -3] Temporary failure in name resolution)")': /simple/pandas/
+WARNING: Retrying (Retry(total=3, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='pypi.org', port=443): Failed to resolve 'pypi.org' ([Errno -3] Temporary failure in name resolution)")': /simple/pandas/
+WARNING: Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='pypi.org', port=443): Failed to resolve 'pypi.org' ([Errno -3] Temporary failure in name resolution)")': /simple/pandas/
+WARNING: Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='pypi.org', port=443): Failed to resolve 'pypi.org' ([Errno -3] Temporary failure in name resolution)")': /simple/pandas/
+WARNING: Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("HTTPSConnection(host='pypi.org', port=443): Failed to resolve 'pypi.org' ([Errno -3] Temporary failure in name resolution)")': /simple/pandas/
+ERROR: Could not find a version that satisfies the requirement pandas (from versions: none)
+ERROR: No matching distribution found for pandas
+
+# Generated by Docker Engine.
+# This file can be edited; Docker Engine will not make further changes once it
+# has been modified.
+
+nameserver 192.168.65.7
+
+# Based on host file: '/etc/resolv.conf' (legacy)
+# Overrides: []
+
+Index 27_20: Success, Score +1
+ Last response: memory usage 53752.64453125kB; Peak was 53752.64453125kB
+
+Index 27_21: Success, Score +1
+ Last response: memory usage 10491.078125kB; Peak was 10491.12890625kB
+
+Index 27_22: Success, Score +1
+ Last response: memory usage 86323.7265625kB; Peak was 86323.7265625kB
+
+Index 27_23: Success, Score +1
+ Last response: memory usage 24438.30859375kB; Peak was 24438.30859375kB
+
+Index 27_24: Success, Score +1
+ Last response: memory usage 80932.29296875kB; Peak was 80932.29296875kB
+
+Index 27_26: Success, Score +1
+ Last response: memory usage 12744.3125kB; Peak was 12744.3125kB
+
+Index 27_25: Success, Score +1
+ Last response: memory usage 53821.11328125kB; Peak was 53821.11328125kB
+
+Index 27_27: Success, Score +1
+ Last response: memory usage 72440.4765625kB; Peak was 72440.6015625kB
+
+Index 27_28: Success, Score +1
+ Last response: memory usage 14589.6484375kB; Peak was 14589.703125kB
+
+Index 27_29: Success, Score +1
+ Last response: memory usage 13212.8984375kB; Peak was 13212.955078125kB
+
+Index 27_30: Success, Score +1
+ Last response: memory usage 12636.6875kB; Peak was 12636.740234375kB
+

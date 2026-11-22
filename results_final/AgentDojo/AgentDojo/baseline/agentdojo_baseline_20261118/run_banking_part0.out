@@ -1,0 +1,4 @@
+Running AgentDojo suite=banking model=openai-compatible defense=none attack=tool_knowledge
+Average utility: 38.89%
+ASR / injection success: 44.44%
+Summary written to: runs/agentdojo_baseline_20261118/banking_part0.json

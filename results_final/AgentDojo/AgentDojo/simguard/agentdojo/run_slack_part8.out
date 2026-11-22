@@ -1,0 +1,4 @@
+Running AgentDojo suite=slack model=openai-compatible defense=simguard attack=tool_knowledge
+Average utility: 20.00%
+ASR / injection success: 20.00%
+Summary written to: runs/full_20261121/agentdojo/slack_part8.json

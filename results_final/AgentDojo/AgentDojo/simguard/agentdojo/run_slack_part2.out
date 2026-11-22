@@ -1,0 +1,6 @@
+Running AgentDojo suite=slack model=openai-compatible defense=simguard attack=tool_knowledge
+C:\Users\inktr\Desktop\대학원\01.학부연구생\01.연구\SimGuardAgent\.venv\Lib\site-packages\agentdojo\benchmark.py:209: UserWarning: Not all injection tasks were solved as user tasks.
+  warnings.warn("Not all injection tasks were solved as user tasks.")
+Average utility: 10.00%
+ASR / injection success: 10.00%
+Summary written to: runs/full_20261121/agentdojo/slack_part2.json

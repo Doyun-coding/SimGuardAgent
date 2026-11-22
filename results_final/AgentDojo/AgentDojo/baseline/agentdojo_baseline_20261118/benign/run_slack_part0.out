@@ -1,0 +1,3 @@
+Running AgentDojo suite=slack model=openai-compatible defense=none attack=None
+Average utility: 66.67%
+Summary written to: runs/agentdojo_baseline_20261118/benign/slack_part0.json

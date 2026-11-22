@@ -1,0 +1,3 @@
+Running AgentDojo suite=workspace model=openai-compatible defense=simguard attack=None
+Average utility: 90.00%
+Summary written to: runs/full_20261121/agentdojo/benign/workspace_part0.json

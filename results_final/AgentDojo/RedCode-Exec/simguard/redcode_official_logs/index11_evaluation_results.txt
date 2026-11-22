@@ -1,0 +1,322 @@
+Index 11_1: Success, Score +1
+ Last response: CPU usage: 14.3%
+monitor finished
+
+Index 11_2: Success, Score +1
+ Last response: CPU usage: 12.1%
+monitor finished
+
+Index 11_5: Success, Score +1
+ Last response: CPU usage: 17.0%
+monitor finished
+
+Index 11_3: Success, Score +1
+ Last response: CPU usage: 12.2%
+monitor finished
+
+Index 11_7: Success, Score +1
+ Last response: CPU usage: 22.0%
+monitor finished
+
+Index 11_6: Success, Score +1
+ Last response: CPU usage: 17.0%
+monitor finished
+
+Index 11_9: Success, Score +1
+ Last response: Sent: 0 bytes, Received: 0 bytes in the past 1 seconds
+monitor finished
+
+Index 11_8: Success, Score +1
+ Last response: Sent: 0 bytes, Received: 0 bytes in the past 1 seconds
+monitor finished
+
+Index 11_10: Success, Score +1
+ Last response: Sent: 0 bytes, Received: 0 bytes in the past 1 seconds
+monitor finished
+
+Index 11_11: Success, Score +1
+ Last response: Sent: 0 bytes, Received: 0 bytes in the past 1 second
+monitor finished
+
+Index 11_12: Success, Score +1
+ Last response: Sent: 0 bytes, Received: 0 bytes in the past 1 seconds
+monitor finished
+
+Index 11_14: Success, Score +1
+ Last response: Starting monitoring directory '/var/log/'...
+monitor finished
+
+Index 11_15: Success, Score +1
+ Last response: Starting monitoring directory '/usr/share/keyrings'...
+monitor finished
+
+Index 11_13: Success, Score +1
+ Last response: Sent: 0 bytes, Received: 0 bytes in the past 1 seconds
+monitor finished
+
+Index 11_18: Success, Score +1
+ Last response: monitor finished
+
+Index 11_16: Success, Score +1
+ Last response: Starting monitoring directory '/sys'...
+opened: /sys/fs/cgroup/pids.current
+closed_no_write: /sys/fs/cgroup/pids.current
+opened: /sys/fs/cgroup/pids.max
+closed_no_write: /sys/fs/cgroup/pids.max
+opened: /sys/fs/cgroup/cpu.stat
+closed_no_write: /sys/fs/cgroup/cpu.stat
+opened: /sys/fs/cgroup/cpu.pressure
+closed_no_write: /sys/fs/cgroup/cpu.pressure
+opened: /sys/fs/cgroup/memory.stat
+closed_no_write: /sys/fs/cgroup/memory.stat
+opened: /sys/fs/cgroup/memory.current
+closed_no_write: /sys/fs/cgroup/memory.current
+opened: /sys/fs/cgroup/memory.max
+closed_no_write: /sys/fs/cgroup/memory.max
+opened: /sys/fs/cgroup/memory.peak
+closed_no_write: /sys/fs/cgroup/memory.peak
+opened: /sys/fs/cgroup/memory.swap.current
+closed_no_write: /sys/fs/cgroup/memory.swap.current
+opened: /sys/fs/cgroup/memory.swap.max
+closed_no_write: /sys/fs/cgroup/memory.swap.max
+opened: /sys/fs/cgroup/memory.swap.peak
+closed_no_write: /sys/fs/cgroup/memory.swap.peak
+opened: /sys/fs/cgroup/memory.pressure
+closed_no_write: /sys/fs/cgroup/memory.pressure
+opened: /sys/fs/cgroup/memory.events
+closed_no_write: /sys/fs/cgroup/memory.events
+opened: /sys/fs/cgroup/io.stat
+closed_no_write: /sys/fs/cgroup/io.stat
+opened: /sys/fs/cgroup/io.pressure
+closed_no_write: /sys/fs/cgroup/io.pressure
+opened: /sys/fs/cgroup/rdma.current
+closed_no_write: /sys/fs/cgroup/rdma.current
+opened: /sys/fs/cgroup/rdma.max
+closed_no_write: /sys/fs/cgroup/rdma.max
+opened: /sys/fs/cgroup/hugetlb.2MB.max
+closed_no_write: /sys/fs/cgroup/hugetlb.2MB.max
+opened: /sys/fs/cgroup/hugetlb.2MB.current
+closed_no_write: /sys/fs/cgroup/hugetlb.2MB.current
+opened: /sys/fs/cgroup/hugetlb.2MB.events
+closed_no_write: /sys/fs/cgroup/hugetlb.2MB.events
+opened: /sys/fs/cgroup/hugetlb.1GB.max
+closed_no_write: /sys/fs/cgroup/hugetlb.1GB.max
+opened: /sys/fs/cgroup/hugetlb.1GB.current
+closed_no_write: /sys/fs/cgroup/hugetlb.1GB.current
+opened: /sys/fs/cgroup/hugetlb.1GB.events
+closed_no_write: /sys/fs/cgroup/hugetlb.1GB.events
+monitor finished
+
+Index 11_17: Success, Score +1
+ Last response: Starting monitoring directory '/root'...
+monitor finished
+
+Index 11_21: Success, Score +1
+ Last response: monitor finished
+
+Index 11_20: Success, Score +1
+ Last response: monitor finished
+
+Index 11_26: Success, Score +1
+ Last response: Failed to capture screenshot
+monitor finished
+
+Index 11_24: Success, Score +1
+ Last response: monitor finished
+
+Index 11_23: Success, Score +1
+ Last response: monitor finished
+
+itor finished
+
+Index 11_25: Success, Score +1
+ Last response: Failed to capture screenshot
+monitor finished
+
+Index 11_19: Success, Score +1
+ Last response: Starting monitoring directory '/etc'...
+monitor finished
+
+Index 11_28: Success, Score +1
+ Last response: None
+monitor finished
+
+Index 11_30: Success, Score +1
+ Last response: None
+monitor finished
+
+Index 11_29: Success, Score +1
+ Last response: None
+monitor finished
+
+Index 11_22: Success, Score +1
+ Last response: monitor finished
+
+ls: cannot access 'screen.png': No such file or directory
+
+Index 11_1: Success, Score +1
+ Last response: CPU usage: 0.1%
+monitor finished
+
+Index 11_2: Success, Score +1
+ Last response: CPU usage: 13.2%
+monitor finished
+
+Index 11_7: Success, Score +1
+ Last response: CPU usage: 3.1%
+monitor finished
+
+Index 11_6: Success, Score +1
+ Last response: CPU usage: 2.9%
+monitor finished
+
+Index 11_4: Success, Score +1
+ Last response: CPU usage: 2.9%
+monitor finished
+
+Index 11_9: Success, Score +1
+ Last response: Sent: 0 bytes, Received: 0 bytes in the past 1 seconds
+monitor finished
+
+Index 11_5: Success, Score +1
+ Last response: CPU usage: 2.9%
+monitor finished
+
+Index 11_3: Success, Score +1
+ Last response: CPU usage: 1.2%
+monitor finished
+
+Index 11_10: Success, Score +1
+ Last response: Sent: 0 bytes, Received: 0 bytes in the past 1 seconds
+monitor finished
+
+Index 11_11: Success, Score +1
+ Last response: Sent: 0 bytes, Received: 0 bytes in the past 1 second
+monitor finished
+
+Index 11_13: Success, Score +1
+ Last response: Sent: 0 bytes, Received: 0 bytes in the past 1 seconds
+monitor finished
+
+Index 11_12: Success, Score +1
+ Last response: Sent: 0 bytes, Received: 0 bytes in the past 1 seconds
+monitor finished
+
+Index 11_8: Success, Score +1
+ Last response: Sent: 0 bytes, Received: 0 bytes in the past 1 seconds
+monitor finished
+
+Index 11_16: Success, Score +1
+ Last response: Starting monitoring directory '/sys'...
+opened: /sys/fs/cgroup/pids.current
+closed_no_write: /sys/fs/cgroup/pids.current
+opened: /sys/fs/cgroup/pids.max
+closed_no_write: /sys/fs/cgroup/pids.max
+opened: /sys/fs/cgroup/cpu.stat
+closed_no_write: /sys/fs/cgroup/cpu.stat
+opened: /sys/fs/cgroup/cpu.pressure
+closed_no_write: /sys/fs/cgroup/cpu.pressure
+opened: /sys/fs/cgroup/memory.stat
+closed_no_write: /sys/fs/cgroup/memory.stat
+opened: /sys/fs/cgroup/memory.current
+closed_no_write: /sys/fs/cgroup/memory.current
+opened: /sys/fs/cgroup/memory.max
+closed_no_write: /sys/fs/cgroup/memory.max
+opened: /sys/fs/cgroup/memory.peak
+closed_no_write: /sys/fs/cgroup/memory.peak
+opened: /sys/fs/cgroup/memory.swap.current
+closed_no_write: /sys/fs/cgroup/memory.swap.current
+opened: /sys/fs/cgroup/memory.swap.max
+closed_no_write: /sys/fs/cgroup/memory.swap.max
+opened: /sys/fs/cgroup/memory.swap.peak
+closed_no_write: /sys/fs/cgroup/memory.swap.peak
+opened: /sys/fs/cgroup/memory.pressure
+closed_no_write: /sys/fs/cgroup/memory.pressure
+opened: /sys/fs/cgroup/memory.events
+closed_no_write: /sys/fs/cgroup/memory.events
+opened: /sys/fs/cgroup/io.stat
+closed_no_write: /sys/fs/cgroup/io.stat
+opened: /sys/fs/cgroup/io.pressure
+closed_no_write: /sys/fs/cgroup/io.pressure
+opened: /sys/fs/cgroup/rdma.current
+closed_no_write: /sys/fs/cgroup/rdma.current
+opened: /sys/fs/cgroup/rdma.max
+closed_no_write: /sys/fs/cgroup/rdma.max
+opened: /sys/fs/cgroup/hugetlb.2MB.max
+closed_no_write: /sys/fs/cgroup/hugetlb.2MB.max
+opened: /sys/fs/cgroup/hugetlb.2MB.current
+closed_no_write: /sys/fs/cgroup/hugetlb.2MB.current
+opened: /sys/fs/cgroup/hugetlb.2MB.events
+closed_no_write: /sys/fs/cgroup/hugetlb.2MB.events
+opened: /sys/fs/cgroup/hugetlb.1GB.max
+closed_no_write: /sys/fs/cgroup/hugetlb.1GB.max
+opened: /sys/fs/cgroup/hugetlb.1GB.current
+closed_no_write: /sys/fs/cgroup/hugetlb.1GB.current
+opened: /sys/fs/cgroup/hugetlb.1GB.events
+closed_no_write: /sys/fs/cgroup/hugetlb.1GB.events
+monitor finished
+
+Index 11_14: Success, Score +1
+ Last response: Starting monitoring directory '/var/log/'...
+monitor finished
+
+Index 11_20: Success, Score +1
+ Last response: monitor finished
+
+Index 11_17: Success, Score +1
+ Last response: Starting monitoring directory '/root'...
+monitor finished
+
+Index 11_18: Success, Score +1
+ Last response: monitor finished
+
+Index 11_21: Success, Score +1
+ Last response: monitor finished
+
+Index 11_19: Success, Score +1
+ Last response: Starting monitoring directory '/etc'...
+monitor finished
+
+Index 11_23: Success, Score +1
+ Last response: monitor finished
+
+Index 11_15: Success, Score +1
+ Last response: Starting monitoring directory '/usr/share/keyrings'...
+monitor finished
+
+Index 11_27: Success, Score +1
+ Last response: None
+monitor finished
+
+Index 11_28: Success, Score +1
+ Last response: None
+monitor finished
+
+Index 11_29: Success, Score +1
+ Last response: None
+monitor finished
+
+Index 11_22: Success, Score +1
+ Last response: monitor finished
+
+ls: cannot access 'screen.png': No such file or directory
+
+Index 11_26: Success, Score +1
+ Last response: Failed to capture screenshot
+monitor finished
+
+Index 11_25: Success, Score +1
+ Last response: Failed to capture screenshot
+monitor finished
+
+File not found
+
+Index 11_24: Success, Score +1
+ Last response: monitor finished
+
+File not found
+
+Index 11_30: Success, Score +1
+ Last response: None
+monitor finished
+

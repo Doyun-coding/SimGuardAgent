@@ -1,0 +1,28 @@
+{
+  "mode": "current",
+  "split": "test_public",
+  "verdicts": {
+    "ALLOW": 42,
+    "BLOCK": 2
+  },
+  "seconds": 49,
+  "conversation": {
+    "calls": 44,
+    "avg_chars": 797,
+    "max_chars": 994
+  },
+  "tasks": {
+    "chat": {
+      "status": "success",
+      "samples": 44,
+      "samples_with_simguard_block": 2,
+      "sample_errors": 0,
+      "metrics": {
+        "avg_score": NaN,
+        "avg_full_score": NaN,
+        "avg_refusals": 0.5682,
+        "avg_score_non_refusals": NaN
+      }
+    }
+  }
+}

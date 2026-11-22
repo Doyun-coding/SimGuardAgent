@@ -1,0 +1,3 @@
+Running AgentDojo suite=banking model=openai-compatible defense=none attack=None
+Average utility: 75.00%
+Summary written to: runs/agentdojo_baseline_20261118/benign/banking_part3.json

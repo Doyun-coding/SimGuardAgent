@@ -1,0 +1,3 @@
+Running AgentDojo suite=workspace model=openai-compatible defense=none attack=None
+Average utility: 100.00%
+Summary written to: runs/agentdojo_baseline_20261118/benign/workspace_part0.json
