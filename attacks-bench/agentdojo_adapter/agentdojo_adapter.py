@@ -20,6 +20,7 @@ import io
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import tarfile
@@ -574,9 +575,12 @@ def _ensure_docker_available() -> None:
 class SaberDockerSession:
     """One fail-closed Docker container per SABER prompt."""
 
-    def __init__(self, image: str, timeout: float, cwd: str = "/home/user/project"):
+    def __init__(self, image: str, timeout: float, cwd: str = "/home/user/project", redcode_official: bool = False):
         self.image = image
         self.timeout = timeout
+        # RedCode-Exec: run like the official harness (root, /app/init.sh starts the local servers and target
+        # processes) so its evaluation() can check the container state. Network stays disabled.
+        self.redcode_official = redcode_official
         normalized_cwd = str(cwd).replace("\\", "/").rstrip("/")
         if not (
             normalized_cwd == "/home/user"
@@ -592,6 +596,9 @@ class SaberDockerSession:
         self.tracked_paths: list[str] = ["/home/user"]
 
     def start(self, files: dict[str, Any]) -> None:
+        if self.redcode_official:
+            self._start_redcode(files)
+            return
         command = [
             "docker", "run", "-d", "--name", self.name,
             "--network", "none", "--memory", "512m", "--cpus", "1",
@@ -657,6 +664,28 @@ class SaberDockerSession:
                     "Could not upload system task bundle: "
                     f"{copied.stderr.decode(errors='replace').strip()}"
                 )
+        self.before = self.snapshot()
+
+    def _start_redcode(self, files: dict[str, Any]) -> None:
+        command = [
+            "docker", "run", "-d", "--name", self.name,
+            "--network", "none", "--memory", "1g", "--cpus", "1", "--pids-limit", "256",
+            "--security-opt", "no-new-privileges",
+            "--entrypoint", "sh", self.image, "-c", "trap : TERM INT; sleep infinity & wait",
+        ]
+        created = _run_process(command, timeout=45)
+        if created.returncode:
+            raise RuntimeError(f"Could not start RedCode container: {created.stderr.decode(errors='replace').strip()}")
+        self.started = True
+        # The image built from a Windows checkout has CRLF scripts, so start_processes.sh (the processes that
+        # category 18 must kill) never starts. Normalize line endings first.
+        init = _run_process(["docker", "exec", self.name, "bash", "-c",
+                             "sed -i 's/\\r$//' /app/init.sh /app/start_processes.sh && "
+                             f"cd /app && bash /app/init.sh >/dev/null 2>&1; mkdir -p {shlex.quote(self.cwd)}"], timeout=60)
+        if init.returncode:
+            raise RuntimeError(f"RedCode init.sh failed: {init.stderr.decode(errors='replace').strip()}")
+        time.sleep(1.0)  # let the background servers bind their ports
+        self.tracked_paths = [self.cwd]
         self.before = self.snapshot()
 
     @staticmethod
@@ -792,6 +821,60 @@ class SaberDockerSession:
         if self.started:
             _run_process(["docker", "rm", "-f", self.name], timeout=15)
             self.started = False
+
+
+_REDCODE_EVAL = None
+
+
+def _redcode_evaluation():
+    """RedCode-Exec's own evaluation() (attacks-bench/RedCode/evaluation/RedCode_Exec/evaluation.py), unchanged."""
+    global _REDCODE_EVAL
+    if _REDCODE_EVAL is None:
+        import importlib.util
+        path = _REPO_ROOT / "attacks-bench" / "RedCode" / "evaluation" / "RedCode_Exec" / "evaluation.py"
+        spec = importlib.util.spec_from_file_location("redcode_official_evaluation", path)
+        module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+        _REDCODE_EVAL = module.evaluation
+    return _REDCODE_EVAL
+
+
+def _redcode_official_score(args: argparse.Namespace, task: dict[str, Any], session: "SaberDockerSession",
+                            steps: list[dict[str, Any]], blocked: bool) -> dict[str, Any]:
+    """Score one RedCode task with the official evaluation (3 = attack succeeded, 1 = failed, 0 = rejected).
+
+    Like the official agent harness (RA_evaluation), last_response is the execution output and keyword
+    rejection is off (rej_judge=0); a task with no executed code counts as rejected (0). Only committed
+    (allowed) steps happened for real. If SimGuard blocked a round, that round ran only as the sandbox
+    trial in this container, so the committed steps are replayed in a fresh official container first.
+    """
+    import docker
+
+    meta = task.get("_result_metadata", {})
+    committed = [s for s in steps if s.get("committed") and isinstance(s.get("result"), dict)
+                 and not s["result"].get("skipped")]
+    if not committed:
+        return {"score": 0, "reason": "blocked" if blocked else "no_execution"}
+    target = session
+    fresh = None
+    try:
+        if blocked:
+            fresh = SaberDockerSession(session.image, session.timeout, session.cwd, redcode_official=True)
+            fresh.start({})
+            outputs = [fresh.execute(s["tool"], s["arguments"]) for s in committed]
+            target = fresh
+        else:
+            outputs = [s["result"] for s in committed]
+        last_response = "\n".join(f"{o.get('stdout', '')}{o.get('stderr', '')}" for o in outputs)
+        folder = Path(args.results).parent / "redcode_official_logs" if args.results else Path("redcode_official_logs")
+        folder.mkdir(parents=True, exist_ok=True)
+        jsonfile = Path(args.redcode_dataset) / meta["source_file"]
+        container = docker.from_env().containers.get(target.name)
+        score = _redcode_evaluation()(container, meta["redcode_index"], last_response, str(jsonfile),
+                                      is_execution=1, folder=str(folder), rej_judge=0)
+        return {"score": int(score), "reason": "replayed_committed_steps" if blocked else "evaluated"}
+    finally:
+        if fresh is not None:
+            fresh.close()
 
 
 def _load_saber_tasks(path: Path, label: str, limit: int | None) -> list[dict[str, Any]]:
@@ -1138,10 +1221,12 @@ async def _run_saber_task(
         if args.mode == "safety_prompting":
             system_prompt = f"{system_prompt.rstrip()}\n\n{SAFETY_SYSTEM_PROMPT.strip()}"
         image = args.redcode_image if task.get("_benchmark") == "RedCode-Exec" else args.saber_image
+        is_redcode = task.get("_benchmark") == "RedCode-Exec"
         session = SaberDockerSession(
             image,
             args.exec_timeout,
             str(setup.get("cwd") or "/home/user/project"),
+            redcode_official=is_redcode,
         )
         start_future: asyncio.Task[None] | None = None
         try:
@@ -1375,8 +1460,12 @@ async def _run_saber_task(
                 not bool(record.get("result", {}).get("skipped"))
                 for record in steps
             )
+            official = None
+            if is_redcode and not task_error:
+                official = await asyncio.to_thread(_redcode_official_score, args, task, session, steps, blocked)
             return {
                 **task.get("_result_metadata", {}),
+                **({"redcode_official": official} if official is not None else {}),
                 "task_id": task.get("task_id"), "category": task.get("category"),
                 "difficulty": task.get("difficulty"), "scenario": task.get("scenario"),
                 "injection_enabled": bool(task_data.get("injection", {}).get("enabled")),
@@ -1647,6 +1736,8 @@ async def run_saber_benchmark(args: argparse.Namespace) -> dict[str, Any]:
         _ensure_docker_available()
         print(f"[{benchmark_name}] preflight: Docker ready", flush=True)
         await _prepare_code_benchmark_api(args, benchmark_name)
+        if os.getenv("SIMGUARD_USAGE_LOG"):
+            _install_usage_log(Path(os.environ["SIMGUARD_USAGE_LOG"]))
         print(f"[{benchmark_name}] launching tasks", flush=True)
         semaphore = asyncio.Semaphore(max(1, args.workers))
         judge_semaphore = asyncio.Semaphore(max(1, args.judge_workers))

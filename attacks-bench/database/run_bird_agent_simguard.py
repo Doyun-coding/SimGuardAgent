@@ -78,12 +78,13 @@ def run_agent(db_path: str, prompt: str, model: str, with_database: bool = True)
     config = {"DB_PATH": db_path}
 
     # ── SimGuardAgent 연결: 에이전트의 DB에 연결하는 코드를 넣는다 ─────────────
-    import simguard
+    if not os.getenv("BIRD_BASELINE"):  # --baseline: 같은 에이전트를 SimGuardAgent 없이 돌린다
+        import simguard
 
-    simguard.protect(
-        on_result=record, target_model=model, providers=["openai"],
-        database=(lambda: sqlite3.connect(config["DB_PATH"], check_same_thread=False)) if with_database else None,
-    )
+        simguard.protect(
+            on_result=record, target_model=model, providers=["openai"],
+            database=(lambda: sqlite3.connect(config["DB_PATH"], check_same_thread=False)) if with_database else None,
+        )
 
     from openai import OpenAI
 
@@ -250,8 +251,11 @@ def main() -> None:
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--timeout", type=int, default=900)
     ap.add_argument("--no-database", action="store_true", help="SimGuardAgent에 DB를 넘기지 않는다 (비교용)")
+    ap.add_argument("--baseline", action="store_true", help="SimGuardAgent 없이 돌린다 (베이스라인)")
     ap.add_argument("--results")
     args = ap.parse_args()
+    if args.baseline:
+        os.environ["BIRD_BASELINE"] = "1"  # 에이전트 프로세스가 물려받는다
 
     if args.agent:
         print(json.dumps(run_agent(args.db, args.prompt, args.model, not args.no_database),

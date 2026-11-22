@@ -104,7 +104,7 @@ class ToolCallSimulator:
 
     async def simulate(self, action: Action) -> SimulationTrace:
         tool_name     = action.tool_name or "unknown_tool"
-        tool_category = action.tool_category or _infer_category(tool_name)
+        tool_category = action.tool_category or infer_tool_category(tool_name)
         tool_args     = json.dumps(action.tool_arguments, ensure_ascii=False)
 
         # 읽기 호출도 판정한다. 읽기는 바깥 상태를 바꾸지 않아도, 민감 정보를 읽거나 요청보다 넓게
@@ -135,9 +135,14 @@ class ToolCallSimulator:
         # 2단계: tool 결과를 받은 LLM이 뭘 출력하는지 시뮬레이션
         agent_response = await self._predict_next_action(action, tool_name, tool_args, simulated_response)
         # 3단계: tool 응답 + LLM 출력 모두 평가
+        # 애플리케이션이 넘긴 DB(protect(database=...))에서 실행한 SQL 호출이면 Judge가 DB 점검을 더한다.
+        # SimGuardAgent 내부 DB(InternalDatabase)는 애플리케이션 DB가 아니므로 제외한다.
+        from simguard.live_db import DatabaseExecutor
+        on_app_database = isinstance(action.live_executor, DatabaseExecutor) and live is not None
         events, risk_score = await self._judge.judge(
             action.user_request, tool_name, tool_category, tool_args,
             simulated_response, agent_response, conversation=action.conversation,
+            database=on_app_database,
         )
 
         return SimulationTrace(
@@ -209,7 +214,7 @@ class ToolCallSimulator:
             response = f"{response}\nNext tool call: {call}"
         return response
 
-def _infer_category(tool_name: str) -> str:
+def infer_tool_category(tool_name: str) -> str:
     name = tool_name.lower()
     if any(k in name for k in ("email", "mail", "inbox", "send_")):
         return "email"

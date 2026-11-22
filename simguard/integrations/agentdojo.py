@@ -117,6 +117,7 @@ class SimGuardAgentInterceptor(BasePipelineElement):
         # 판정기의 LLM 클라이언트는 이벤트 루프에 묶이므로 호출마다 새로 만든다.
         result = _run(_Interceptor().intercept_output(
             history, output, tools, execution_environment=self.execution_environment,
+            retrieved_context=extra_args.get("retrieved_context"),
         ))
         extra_args["simguard_results"] = [*extra_args.get("simguard_results", []), result]
         if result.decision == Decision.BLOCK:

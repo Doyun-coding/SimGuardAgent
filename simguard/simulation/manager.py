@@ -17,12 +17,17 @@ Simulation Manager
      (simguard/languages.py)
   4. tool_name 있음                   -> TOOL_CALL (RAG 검색, 메모리 읽기·쓰기 포함)
   5. 그 외                            -> CONVERSATIONAL
+
+TOOL_CALL이면 도구 종류(tool_category)도 정한다. 애플리케이션이 준 값을 쓰고, 없으면 도구 이름으로 추정한다
+(memory·remember·store·recall -> memory 등). memory이면 ToolCallJudge가 메모리 점검을 더해 판정한다.
+애플리케이션이 DB를 넘겨(protect(database=...)) 그 DB 사본에서 SQL을 실행한 호출은 ToolCallJudge가 DB 점검을 더한다.
+FINAL_RESPONSE에 검색 문서(retrieved_context)가 있으면 BehaviorJudge가 RAG 점검을 더해 판정한다.
 """
 from __future__ import annotations
 
 from simguard.models import Action, ActionType, SimulationBackend, SimulationTrace
 from simguard.simulation.backends.behavior_simulator import BehaviorSimulator
-from simguard.simulation.backends.tool_call_simulator import ToolCallSimulator
+from simguard.simulation.backends.tool_call_simulator import ToolCallSimulator, infer_tool_category
 from simguard.simulation.judges.behavior_judge import BehaviorJudge
 
 from simguard import languages
@@ -81,6 +86,8 @@ class SimulationManager:
             return await self._execution_simulator().simulate(action)
 
         if action_type == ActionType.TOOL_CALL:
+            if not action.tool_category:
+                action = action.model_copy(update={"tool_category": infer_tool_category(action.tool_name or "")})
             return await self._tool.simulate(action)
 
         return await self._llm.simulate(action)

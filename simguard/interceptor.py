@@ -345,6 +345,7 @@ class SimGuardAgentInterceptor:
         tools: Sequence[dict] | Mapping[str, Sequence[str]] | None = None,
         tool_executors: Mapping[str, LiveToolExecutor] | None = None,
         execution_environment: ExecutionEnvironment | None = None,
+        retrieved_context: str | None = None,
     ) -> InterceptionResult:
         """타겟 LLM의 출력 하나를 에이전트가 실행하거나 사용자에게 보내기 전에 평가한다.
 
@@ -354,6 +355,8 @@ class SimGuardAgentInterceptor:
           tools:    타겟이 LLM에 준 도구 정의 목록, 또는 {도구 이름: 인자 이름 목록}
           execution_environment: 에이전트가 코드를 실행하는 작업 파일 (simguard.ExecutionEnvironment).
                     주면 코드·셸 행동을 그 파일이 든 Docker 컨테이너에서 실행해 본다.
+          retrieved_context: 애플리케이션(RAG 시스템)이 검색해 타겟에게 준 문서. 주면 BehaviorJudge가 RAG 점검을
+                    더해 판정한다 (문서 속 지시 따르기, 문서 간 사실 충돌).
 
         출력 하나는 Plan 하나이고, Simulation Manager가 Plan이 실행하려는 내용에 따라 한 경로로
         보낸다. 도구 호출은 ToolCallSimulator, 코드는 ExecutionSimulator, 행동 없이 할 일을 서술한
@@ -372,6 +375,8 @@ class SimGuardAgentInterceptor:
             for action in response_actions(list(messages), dict(output), tools, tool_executors, descriptions):
                 if execution_environment is not None:
                     action = action.model_copy(update={"execution_environment": execution_environment})
+                if retrieved_context:
+                    action = action.model_copy(update={"retrieved_context": retrieved_context})
                 trace = await self.intercept(action)
                 result.traces.append(trace)
                 result.risk_score = max(result.risk_score, float(trace.risk_score))

@@ -61,6 +61,32 @@ _settings: dict[str, Any] = {
 }
 
 
+# 애플리케이션(RAG 시스템)이 검색해 타겟에게 준 문서. retrieved_context()로 감싼 구간의 판정에만 넘긴다.
+_RETRIEVED: ContextVar[str | None] = ContextVar("simguard_retrieved_context", default=None)
+
+
+@contextlib.contextmanager
+def retrieved_context(documents: str | Iterable[str] | None):
+    """이 안에서 판정하는 모델 출력에 애플리케이션이 검색한 문서를 함께 넘긴다.
+
+    RAG 애플리케이션은 문서를 검색해 프롬프트에 붙이지만, SimGuardAgent는 프롬프트의 어느 부분이 검색 문서인지
+    모른다. 이 안에서는 BehaviorJudge가 문서를 retrieved_context로 받아 RAG 점검(문서 속 지시 따르기, 문서 간
+    사실 충돌)을 더해 판정한다. 쓰지 않으면 동작은 그대로다.
+
+        with simguard.retrieved_context(docs):
+            answer = agent.run(question)
+
+    documents: 문서 하나(문자열) 또는 문서 목록. 목록이면 "[Document i]" 머리말을 붙여 이어 붙인다.
+    """
+    if documents is not None and not isinstance(documents, str):
+        documents = "\n\n".join(f"[Document {i + 1}]\n{d}" for i, d in enumerate(documents))
+    token = _RETRIEVED.set(documents or None)
+    try:
+        yield
+    finally:
+        _RETRIEVED.reset(token)
+
+
 @contextlib.contextmanager
 def bypass():
     """이 안에서 일어나는 LLM 호출은 판정하지 않는다."""
@@ -138,18 +164,21 @@ class SimGuardBlocked(Exception):
         self.result = result
 
 
-async def _judge(messages: list, tools: list | None, output: dict) -> InterceptionResult:
+async def _judge(messages: list, tools: list | None, output: dict, retrieved: str | None = None) -> InterceptionResult:
+    retrieved = retrieved if retrieved is not None else _RETRIEVED.get()
     with bypass():
         # 판정기의 LLM 클라이언트는 이벤트 루프에 묶이므로 호출마다 새로 만든다.
         return await SimGuardAgentInterceptor().intercept_output(
             messages, output, tools,
             tool_executors=_tool_executors(output),
             execution_environment=_settings["execution_environment"],
+            retrieved_context=retrieved,
         )
 
 
 def _judge_sync(messages: list, tools: list | None, output: dict) -> InterceptionResult:
-    coro = _judge(messages, tools, output)
+    # 다른 스레드에서 판정할 수 있어 검색 문서는 지금 읽어 넘긴다 (ContextVar는 스레드로 따라가지 않는다).
+    coro = _judge(messages, tools, output, _RETRIEVED.get())
     try:
         asyncio.get_running_loop()
     except RuntimeError:

@@ -297,6 +297,29 @@ class LLMClient:
         self.chat = _Chat(completions)
 
 
+_ssl_context: Any = None
+_ssl_lock = threading.Lock()
+
+
+def _tls_verify() -> Any:
+    """httpx의 verify 값. 인증서 묶음(certifi)은 프로세스마다 한 번만 읽어 SSLContext를 다시 쓴다.
+
+    Interceptor는 판정마다 클라이언트를 새로 만든다 (클라이언트가 이벤트 루프에 묶이기 때문). httpx 기본값
+    verify=True는 그때마다 certifi 묶음을 다시 읽는데, 프로세스가 많아 CPU가 바쁘면 한 번에 10~25초가 걸렸다.
+    SIMGUARD_TLS_VERIFY=0이면 검증하지 않는다.
+    """
+    global _ssl_context
+    if os.getenv("SIMGUARD_TLS_VERIFY", "1").lower() in {"0", "false", "no", "off"}:
+        return False
+    with _ssl_lock:
+        if _ssl_context is None:
+            import ssl
+            import certifi
+
+            _ssl_context = ssl.create_default_context(cafile=certifi.where())
+        return _ssl_context
+
+
 def make_backend_client(role: str | None) -> Any:
     backend = backend_for(role)
     if backend == "openai":
@@ -306,8 +329,7 @@ def make_backend_client(role: str | None) -> Any:
         return AsyncOpenAI(
             api_key=api_key(role) or "EMPTY",       # 키가 필요 없는 로컬 서버(vLLM, Ollama)도 있다
             base_url=base_url(role),
-            http_client=httpx.AsyncClient(verify=not os.getenv("SIMGUARD_TLS_VERIFY", "1").lower()
-                                          in {"0", "false", "no", "off"}),
+            http_client=httpx.AsyncClient(verify=_tls_verify()),
             timeout=float(os.getenv("JUDGE_TIMEOUT", "120")),
             # Judge가 형식 오류·빈 응답 재시도를 직접 한다. SDK 안에서 또 재시도하면 지연이 곱해진다.
             max_retries=0,
